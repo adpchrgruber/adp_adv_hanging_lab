@@ -1,0 +1,34 @@
+; FBX 7.4.0 project file
+; ----------------------------------------------------
+FBXHeaderExtension:  {
+	FBXHeaderVersion: 1003
+	FBXVersion: 7400
+	Creator: "hanging-lab tools/make_examples.py"
+}
+GlobalSettings:  {
+	Version: 1000
+	Properties70:  {
+		P: "UpAxis", "int", "Integer", "",1
+		P: "UnitScaleFactor", "double", "Number", "",1
+	}
+}
+Objects:  {
+	Geometry: 1000, "Geometry::star_panel", "Mesh" {
+		Vertices: *33 {
+			a: 0.000,0.000,0.000,0.000,0.000,150.000,-36.443,0.000,50.159,-142.658,0.000,46.353,-58.966,0.000,-19.159,-88.168,0.000,-121.353,-0.000,0.000,-62.000,88.168,0.000,-121.353,58.966,0.000,-19.159,142.658,0.000,46.353,36.443,0.000,50.159
+		}
+		PolygonVertexIndex: *30 {
+			a: 0,2,-2,0,3,-3,0,4,-4,0,5,-5,0,6,-6,0,7,-7,0,8,-8,0,9,-9,0,10,-10,0,1,-11
+		}
+		GeometryVersion: 124
+	}
+	Model: 2000, "Model::star_panel", "Mesh" {
+		Version: 232
+		Properties70:  {
+		}
+	}
+}
+Connections:  {
+	C: "OO",2000,0
+	C: "OO",1000,2000
+}

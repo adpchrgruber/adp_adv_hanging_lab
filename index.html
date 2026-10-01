@@ -1,0 +1,1872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hanging — Funicular Form</title>
+<meta name="description" content="An online hanging-model workbench after Gaudí: import any 3D object, turn it into cloth or chain, pin anchor points, let it hang — then invert it into a compression form.">
+<meta property="og:title" content="Hanging — Funicular Form">
+<meta property="og:description" content="Import · cloth · anchor · hang · invert. A hanging-model workbench after Gaudí.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://adpchrgruber.github.io/adp_adv_hanging_lab/">
+<meta property="og:image" content="https://adpchrgruber.github.io/adp_adv_hanging_lab/docs/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M4 6Q16 40 28 6' fill='none' stroke='%23000' stroke-width='3'/%3E%3Cpath d='M2 4h6v4H2zM24 4h6v4h-6z' fill='%23002FA7'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#FFFFFF; --ink:#000000; --muted:#707070; --line:#E3E3E3; --blue:#002FA7;
+    --sans:"Helvetica Neue",Helvetica,Arial,"Liberation Sans",sans-serif;
+    --side:292px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%; overflow:hidden; background:var(--paper); color:var(--ink);
+    font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased;}
+  button,select{font-family:var(--sans); cursor:pointer;}
+  :focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+
+  #stage{position:fixed; top:0; right:0; bottom:0; left:var(--side);}
+  #canvas-wrap{position:absolute; inset:0;}
+  canvas{display:block; touch-action:none;}
+
+  #ui{
+    position:fixed; top:0; left:0; bottom:0; width:var(--side);
+    background:var(--paper); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; z-index:10;
+  }
+  #ui header{padding:26px 22px 18px; border-bottom:1px solid var(--line); position:relative;}
+  .eyebrow{font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+  .eyebrow .blue{color:var(--blue);}
+  #ui h1{font-weight:700; font-size:27px; line-height:.98; letter-spacing:-.03em; margin:12px 0 8px;}
+  #ui .subtitle{font-size:12px; color:var(--muted); letter-spacing:-.01em;}
+  #ui #btn-sheet{display:none;}
+
+  #panels{flex:1; overflow-y:auto; padding:2px 22px 30px; scrollbar-width:none;}
+  #panels::-webkit-scrollbar{width:0;}
+  .section{padding:20px 0 14px; border-bottom:1px solid var(--line);}
+  .section:last-child{border-bottom:none;}
+  .section > h2{
+    font-size:10px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.14em; color:var(--muted); margin-bottom:12px;
+    display:flex; align-items:baseline; gap:10px;
+  }
+  .section > h2 .num{color:var(--blue); font-size:10px;}
+  .section.locked > *:not(h2){opacity:.3; pointer-events:none;}
+  .section.locked > h2{color:#b5b5b5;}
+  .section.locked > h2 .num{color:#b5b5b5;}
+  .section h3{font-size:9px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); margin:12px 0 2px;}
+  .section h3:first-of-type{margin-top:0;}
+  .note{font-size:11px; color:var(--muted); margin:8px 0 0; letter-spacing:.01em;}
+  .row{display:flex; gap:8px; flex-wrap:wrap;}
+  .row > *{flex:1;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .mt{margin-top:10px;}
+
+  #ui button{
+    font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    border:1.5px solid var(--ink); background:var(--paper); color:var(--ink);
+    padding:11px 6px; border-radius:0;
+    transition:background .1s, color .1s, border-color .1s;
+  }
+  #ui button:hover{background:var(--ink); color:var(--paper);}
+  #ui button.active{background:var(--blue); border-color:var(--blue); color:var(--paper);}
+  #ui button.primary{background:var(--blue); border-color:var(--blue); color:var(--paper);}
+  #ui button.primary:hover{background:var(--ink); border-color:var(--ink);}
+  #ui button.chip{
+    border:none; background:none; color:var(--blue); text-align:left; padding:5px 0; font-size:10px;
+  }
+  #ui button.chip:hover{background:none; color:var(--ink);}
+  .chips{display:flex; flex-direction:column; align-items:flex-start;}
+
+  #ui .tabs{display:flex; gap:22px; margin-top:6px;}
+  #ui .tabs .tab{
+    border:none; background:none; padding:10px 0 8px; color:var(--muted);
+    border-bottom:3px solid transparent;
+  }
+  #ui .tabs .tab:hover{background:none; color:var(--ink);}
+  #ui .tabs .tab.active{background:none; color:var(--ink); border-bottom-color:var(--blue);}
+
+  .slider-row{display:flex; align-items:center; gap:10px; margin:0 0 10px;}
+  .slider-row label{
+    flex:0 0 76px; font-size:10px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--muted);
+  }
+  .slider-row input[type=range]{flex:1; min-width:0; accent-color:var(--blue); height:14px;}
+  .slider-row output{
+    flex:0 0 40px; text-align:right; font-size:11px; font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .sliders{margin-top:14px;}
+  .check-row{
+    display:flex; align-items:center; gap:8px; margin:12px 0 2px;
+    font-size:11px; color:var(--muted); letter-spacing:.01em;
+  }
+  .check-row input{accent-color:var(--blue);}
+  .check-row b{color:var(--ink);}
+
+  #objlist{display:flex; flex-direction:column; margin-top:8px; max-height:180px; overflow-y:auto;}
+  .obj-item{
+    display:flex; align-items:center; gap:10px; padding:9px 0;
+    border-bottom:1px solid #EFEFEF; cursor:pointer;
+    font-size:13px; font-weight:700; letter-spacing:-.01em;
+  }
+  .obj-item .marker{flex:none; width:10px; height:10px; border:1.5px solid var(--ink); background:var(--paper);}
+  .obj-item.selected .marker{background:var(--blue); border-color:var(--blue);}
+  .obj-item:hover .name{color:var(--blue);}
+  .obj-item .name{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .obj-item .tag{font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .obj-item .tag.cloth{color:var(--blue);}
+  #ui .obj-item .mini{border:none; background:none; color:var(--muted); font-size:14px; line-height:1; padding:2px;}
+  #ui .obj-item .mini:hover{background:none; color:var(--ink);}
+
+  .stats{
+    font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted); font-variant-numeric:tabular-nums; margin-top:12px;
+  }
+
+  #hint{
+    position:absolute; left:0; right:0; bottom:0;
+    background:var(--paper); border-top:1px solid var(--line);
+    padding:10px 22px; font-size:11px; color:var(--muted);
+    letter-spacing:.02em; z-index:10; pointer-events:none;
+  }
+  #hint b{color:var(--ink); font-weight:700;}
+  #badge{
+    position:absolute; top:20px; left:20px; z-index:10; pointer-events:none;
+    font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+    background:var(--blue); color:var(--paper); padding:7px 12px; display:none;
+  }
+  body.inverted #badge{display:block;}
+
+  #stage-controls{
+    position:absolute; top:20px; right:20px; z-index:10; gap:8px; display:none;
+  }
+  body.has-cloth #stage-controls{display:flex;}
+  #stage-controls button{
+    width:44px; height:44px; display:grid; place-items:center; cursor:pointer;
+    border:none; border-radius:0; transition:background .1s, color .1s;
+  }
+  #stage-controls svg{width:16px; height:16px; fill:currentColor;}
+  #stage-play{background:var(--blue); color:var(--paper);}
+  #stage-play:hover{background:var(--ink);}
+  #stage-reset{background:var(--paper); color:var(--ink); box-shadow:inset 0 0 0 1.5px var(--ink);}
+  #stage-reset:hover{background:var(--ink); color:var(--paper);}
+  #stage-reset:disabled{opacity:.25; cursor:default; background:var(--paper); color:var(--ink);}
+  @media (max-width:720px){ #stage-controls{top:12px; right:12px;} }
+
+  #toast{
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    background:var(--paper); border:1.5px solid var(--ink); color:var(--ink);
+    padding:9px 18px; font-size:12px; z-index:20; max-width:calc(100% - 32px);
+    opacity:0; transition:opacity .2s; pointer-events:none;
+  }
+  #toast.show{opacity:1;}
+  #toast.err{background:var(--ink); color:var(--paper);}
+
+  @media (max-width:720px){
+    #stage{left:0; bottom:var(--sheet, 46vh);}
+    #ui{top:auto; width:100%; height:var(--sheet, 46vh); border-right:none; border-top:1px solid var(--line);}
+    #ui header{padding:12px 16px 10px;}
+    #ui h1{font-size:18px; margin:4px 0 0;}
+    #ui h1 br{display:none;}
+    #ui .subtitle{display:none;}
+    #ui #btn-sheet{display:block; position:absolute; right:16px; top:14px; padding:8px 10px;}
+    #panels{padding:0 16px 24px;}
+    body.sheet-collapsed{--sheet:64px;}
+    body.sheet-collapsed #panels{display:none;}
+    #hint{display:none;}
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<main id="stage">
+  <div id="canvas-wrap"></div>
+  <div id="badge">Inverted — compression form</div>
+  <div id="stage-controls">
+    <button id="stage-reset" title="Reset to the start" aria-label="Reset" disabled>
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7l1.9.6A3.5 3.5 0 1 0 8 4.5v2L4.5 3.5 8 .5z"/></svg>
+    </button>
+    <button id="stage-play" title="Hang (Space)" aria-label="Hang"></button>
+  </div>
+  <div id="hint"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</main>
+
+<div id="ui">
+  <header>
+    <div class="eyebrow"><span class="blue">Hanging</span> — Working Model</div>
+    <h1>Funicular <br>Form</h1>
+    <p class="subtitle">Hang it in tension · invert it to compression</p>
+    <button id="btn-sheet" aria-label="Collapse panel">Hide</button>
+  </header>
+  <div id="panels">
+
+    <div class="section">
+      <h2>Presets &amp; examples</h2>
+      <h3>After Gaudí</h3>
+      <div class="chips">
+        <button class="chip" data-preset="catenary">Catenary — a single chain</button>
+        <button class="chip" data-preset="arches">Arch family — chains of different slack</button>
+        <button class="chip" data-preset="guell">Colònia Güell — weighted chain network</button>
+      </div>
+      <h3>Shells &amp; nets</h3>
+      <div class="chips">
+        <button class="chip" data-preset="vault">Four-point vault — hanging cloth</button>
+        <button class="chip" data-preset="dome">Dome — disc hung from its rim</button>
+        <button class="chip" data-preset="net">Hanging net — square chain grid</button>
+        <button class="chip" data-preset="bag">Bag — sphere hung from one point</button>
+      </div>
+      <h3>Example scenes (own models)</h3>
+      <div class="chips">
+        <button class="chip" data-example="hex-shell">Hexagon shell (OBJ)</button>
+        <button class="chip" data-example="star-canopy">Star canopy (FBX)</button>
+        <button class="chip" data-example="ring-band">Ring band (OBJ)</button>
+      </div>
+    </div>
+
+    <div class="section" id="step1">
+      <h2><span class="num">01</span> Import</h2>
+      <div class="grid2">
+        <button id="btn-load" title="FBX, OBJ, GLB/GLTF or STL">Load model…</button>
+        <button data-prim="chain">Chain</button>
+      </div>
+      <div class="grid3 mt">
+        <button data-prim="sheet">Sheet</button>
+        <button data-prim="disc">Disc</button>
+        <button data-prim="sphere">Sphere</button>
+        <button data-prim="torus">Torus</button>
+        <button data-prim="tube">Tube</button>
+        <button data-prim="net">Net</button>
+      </div>
+      <div class="tabs">
+        <button id="giz-t" class="tab active" title="key: G">Move</button>
+        <button id="giz-r" class="tab" title="key: R">Rotate</button>
+        <button id="giz-s" class="tab" title="key: S">Scale</button>
+      </div>
+      <div id="objlist"></div>
+      <div id="stats" class="stats"></div>
+    </div>
+
+    <div class="section locked" id="step2">
+      <h2><span class="num">02</span> Cloth</h2>
+      <div class="slider-row">
+        <label for="p-res">Resolution</label>
+        <input type="range" id="p-res" min="8" max="70" step="1" value="28">
+        <output id="o-res">28</output>
+      </div>
+      <div class="grid2">
+        <button id="btn-cloth" class="primary">Make cloth</button>
+        <button id="btn-uncloth">Back to model</button>
+      </div>
+      <p class="note">Re-meshes the selected model (or every model) into particles and links. Resolution = links across the longest side.</p>
+    </div>
+
+    <div class="section locked" id="step3">
+      <h2><span class="num">03</span> Anchors</h2>
+      <div class="grid3">
+        <button id="tool-pin" class="active" title="key: P">Pin</button>
+        <button id="tool-weight" title="key: W">Weight</button>
+        <button id="tool-move" title="key: M">Move</button>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-load">Weight</label>
+          <input type="range" id="p-load" min="1" max="50" step="1" value="10">
+          <output id="o-load">10%</output>
+        </div>
+      </div>
+      <h3>Auto</h3>
+      <div class="grid2">
+        <button id="auto-corners">Corners</button>
+        <button id="auto-boundary">Boundary</button>
+        <button id="auto-top">Highest</button>
+        <button id="auto-clear">Clear</button>
+        <button id="auto-gather" title="move all anchors 10% toward their centre — gives cloth slack to sag">Gather</button>
+        <button id="auto-spread" title="move all anchors 10% away from their centre">Spread</button>
+      </div>
+      <p class="note">Click a particle to pin it. Weights hang sachets from the net, as in Gaudí's model. Move drags an anchor — also while hanging.</p>
+    </div>
+
+    <div class="section locked" id="step4">
+      <h2><span class="num">04</span> Hang</h2>
+      <div class="row">
+        <button id="btn-play" class="primary" title="key: Space">Hang</button>
+        <button id="btn-reset">Reset</button>
+      </div>
+      <div class="sliders">
+        <div class="slider-row">
+          <label for="p-grav">Gravity</label>
+          <input type="range" id="p-grav" min="0" max="20" step="0.1" value="9.8">
+          <output id="o-grav">9.8</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-stretch">Stretch</label>
+          <input type="range" id="p-stretch" min="0" max="1" step="0.01" value="0.1">
+          <output id="o-stretch">0.10</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-bend">Bending</label>
+          <input type="range" id="p-bend" min="0" max="1" step="0.01" value="0.2">
+          <output id="o-bend">0.20</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-damp">Damping</label>
+          <input type="range" id="p-damp" min="0" max="5" step="0.05" value="1">
+          <output id="o-damp">1.00</output>
+        </div>
+        <div class="slider-row">
+          <label for="p-sub">Substeps</label>
+          <input type="range" id="p-sub" min="4" max="60" step="1" value="20">
+          <output id="o-sub">20</output>
+        </div>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="p-invert">
+        <label for="p-invert"><b>Invert</b> — flip into the compression form (key: I)</label>
+      </div>
+      <div class="tabs">
+        <button class="tab active" data-display="both">Both</button>
+        <button class="tab" data-display="surface">Surface</button>
+        <button class="tab" data-display="net">Net</button>
+      </div>
+      <div id="simstats" class="stats"></div>
+    </div>
+
+    <div class="section">
+      <h2>Scene</h2>
+      <div class="grid2">
+        <button id="btn-export">Export OBJ</button>
+        <button id="btn-save">Save scene</button>
+        <button id="btn-open">Open scene…</button>
+        <button id="btn-frame">Frame all</button>
+        <button id="btn-clear">Clear</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<input type="file" id="model-input" accept=".fbx,.obj,.glb,.gltf,.stl" hidden>
+<input type="file" id="scene-input" accept=".json,application/json" hidden>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
+import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+
+/* ============================== state ============================== */
+
+const SIM = { EDIT:0, RUNNING:1, PAUSED:2 };
+const TOOLS = { PIN:'pin', WEIGHT:'weight', MOVE:'move' };
+const HANG_HEIGHT = 3.6;          // new models are placed with their centre here
+const MODEL_SIZE = 3;             // imported models are scaled to this largest dimension
+const MAX_TRIS = 24000;
+
+let simState = SIM.EDIT;
+let tool = TOOLS.PIN;
+let display = 'both';
+let inverted = false;
+let nextObjId = 1;
+const objects = new Map();        // id -> {id,name,source,container,cloth,resolution}
+let selectedObj = null;
+let selectedAnchor = null;        // {cloth, i}
+
+const params = {
+  gravity: 9.8, stretch: 0.1, bending: 0.2, damping: 1, substeps: 20,
+  resolution: 28, load: 10,
+};
+
+/* ============================== scene ============================== */
+
+const $ = id => document.getElementById(id);
+const wrap = $('canvas-wrap');
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+wrap.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xffffff);
+scene.fog = new THREE.Fog(0xffffff, 25, 70);
+
+const camera = new THREE.PerspectiveCamera(50, 1, 0.05, 300);
+camera.position.set(7, 5.5, 9);
+
+const orbit = new OrbitControls(camera, renderer.domElement);
+orbit.target.set(0, 2.4, 0);
+orbit.enableDamping = true;
+orbit.dampingFactor = 0.08;
+orbit.maxPolarAngle = Math.PI * 0.495;
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0xdddddd, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 1.8);
+sun.position.set(6, 14, 5);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.02;
+sun.shadow.camera.left = sun.shadow.camera.bottom = -12;
+sun.shadow.camera.right = sun.shadow.camera.top = 12;
+scene.add(sun);
+
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(40, 64).rotateX(-Math.PI/2),
+  new THREE.MeshStandardMaterial({ color:0xffffff, roughness:0.96 })
+);
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(40, 40, 0xc9c9c9, 0xe7e7e7);
+grid.position.y = 0.001;
+scene.add(grid);
+
+// everything that hangs lives in this group, so inverting is a single flip
+const hangGroup = new THREE.Group();
+scene.add(hangGroup);
+
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.85);
+scene.add(gizmo);
+gizmo.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; });
+gizmo.addEventListener('objectChange', () => {
+  if (selectedAnchor){
+    const a = selectedAnchor.cloth.anchors.get(selectedAnchor.i);
+    a.target.copy(selectedAnchor.cloth.anchorHandle.position);
+    if (simState === SIM.EDIT) a.home.copy(a.target);
+  }
+});
+let selBox = null;
+
+/* ============================== materials ============================== */
+
+const INK = 0x000000, PAPER = 0xffffff, BLUE = 0x002FA7;
+const modelMat  = new THREE.MeshStandardMaterial({ color:0xbdbdbd, roughness:0.75, side:THREE.DoubleSide });
+const clothMat  = new THREE.MeshStandardMaterial({
+  color:0xf6f6f4, roughness:0.92, side:THREE.DoubleSide,
+  polygonOffset:true, polygonOffsetFactor:1, polygonOffsetUnits:1,
+});
+// double-sided: inverting mirrors the scene, which flips the line quads' winding
+const lineMat   = new LineMaterial({ linewidth: 1.4, vertexColors: true, worldUnits: false, side: THREE.DoubleSide });
+const sourceLineMat = new THREE.LineBasicMaterial({ color:0x555555 });
+const markerGeo = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+const markerEdgeGeo = new THREE.EdgesGeometry(markerGeo);
+const weightGeo = new THREE.SphereGeometry(1, 16, 12);
+const weightMat = new THREE.MeshStandardMaterial({ color:0x161616, roughness:0.6 });
+const anchorMat = new THREE.MeshBasicMaterial({ color:BLUE });
+const anchorEdgeMat = new THREE.LineBasicMaterial({ color:BLUE });
+const handleMat = new THREE.MeshBasicMaterial({ color:BLUE, transparent:true, opacity:0.35 });
+
+function resize(){
+  const w = wrap.clientWidth || 1, h = wrap.clientHeight || 1;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+  lineMat.resolution.set(w, h);
+}
+
+/* ============================== helpers ============================== */
+
+const toastEl = $('toast');
+let toastTimer = null;
+function toast(msg, isErr = false){
+  toastEl.textContent = msg;
+  toastEl.className = 'show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.className = '', 2800);
+}
+
+function requireEdit(){
+  if (simState === SIM.EDIT) return true;
+  toast('Reset the hanging first', true);
+  return false;
+}
+
+const clothList = () => [...objects.values()].filter(o => o.cloth).map(o => o.cloth);
+
+function updateHint(){
+  const el = $('hint');
+  const any = objects.size > 0, clothed = clothList().length > 0;
+  let h;
+  if (inverted) h = '<b>Inverted</b> — the hanging form turned upside down: every link in tension becomes a line of pure compression · press <b>I</b> to flip back';
+  else if (simState !== SIM.EDIT) h = '<b>Hanging</b> — <b>Move</b> anchors to reshape it live · <b>I</b> inverts · Reset returns to the start';
+  else if (!any) h = '<b>01 Import</b> — load a model (FBX, OBJ, GLB, STL), add a primitive, or start from a preset';
+  else if (!clothed) h = '<b>02 Cloth</b> — position the model, then press <b>Make cloth</b> · Keys: <b>G</b> move · <b>R</b> rotate · <b>S</b> scale';
+  else if (tool === TOOLS.PIN) h = '<b>03 Anchors</b> — click particles to pin them, or use the Auto buttons · then <b>Hang</b> (Space)';
+  else if (tool === TOOLS.WEIGHT) h = '<b>Weights</b> — click a particle to hang a sachet from it · Shift-click removes';
+  else h = '<b>Move</b> — click an anchor, drag the gizmo';
+  el.innerHTML = h;
+}
+
+// one label for both play controls: the panel button and the one in the frame
+const PLAY_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 1.5v13L14 8z"/></svg>';
+const PAUSE_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2h3.5v12H3zM9.5 2H13v12H9.5z"/></svg>';
+function setPlayLabel(label){
+  $('btn-play').textContent = label;
+  const b = $('stage-play'), running = label === 'Pause';
+  b.innerHTML = running ? PAUSE_ICON : PLAY_ICON;
+  b.setAttribute('aria-label', label);
+  b.title = `${label} (Space)`;
+  $('stage-reset').disabled = label === 'Hang';   // nothing to reset before hanging
+}
+
+function updateSteps(){
+  const any = objects.size > 0, clothed = clothList().length > 0;
+  $('step2').classList.toggle('locked', !any);
+  $('step3').classList.toggle('locked', !clothed);
+  $('step4').classList.toggle('locked', !clothed);
+  document.body.classList.toggle('has-cloth', clothed);
+  updateHint();
+}
+
+function refreshStats(){
+  let np = 0, nl = 0, na = 0;
+  clothList().forEach(c => { np += c.n; nl += c.nEdges; na += c.anchors.size; });
+  $('stats').textContent = `${objects.size} objects · ${np} particles · ${nl} links · ${na} anchors`;
+  updateSteps();
+}
+
+/* ============================== geometry processing ============================== */
+// Imported meshes arrive with arbitrary density. Weld, then subdivide or cluster until
+// the average edge is close to the target length, so every model hangs at a usable
+// resolution.
+
+function weld(pos, idx, tol){
+  const map = new Map(), out = [], remap = new Int32Array(pos.length / 3);
+  for (let i = 0; i < pos.length / 3; i++){
+    const key = `${Math.round(pos[3*i]/tol)},${Math.round(pos[3*i+1]/tol)},${Math.round(pos[3*i+2]/tol)}`;
+    let j = map.get(key);
+    if (j === undefined){ j = out.length / 3; map.set(key, j); out.push(pos[3*i], pos[3*i+1], pos[3*i+2]); }
+    remap[i] = j;
+  }
+  const tris = [];
+  for (let t = 0; t < idx.length; t += 3){
+    const a = remap[idx[t]], b = remap[idx[t+1]], c = remap[idx[t+2]];
+    if (a !== b && b !== c && c !== a) tris.push(a, b, c);
+  }
+  return { pos: out, tris };
+}
+
+function avgEdge(pos, tris){
+  let s = 0;
+  for (let t = 0; t < tris.length; t += 3){
+    for (let k = 0; k < 3; k++){
+      const a = tris[t+k], b = tris[t+(k+1)%3];
+      s += Math.hypot(pos[3*a]-pos[3*b], pos[3*a+1]-pos[3*b+1], pos[3*a+2]-pos[3*b+2]);
+    }
+  }
+  return s / Math.max(1, tris.length);
+}
+
+function subdivide(pos, tris){
+  const mid = new Map(), out = pos.slice(), next = [];
+  const m = (a, b) => {
+    const key = a < b ? a * 1e7 + b : b * 1e7 + a;
+    let i = mid.get(key);
+    if (i === undefined){
+      i = out.length / 3;
+      out.push((out[3*a]+out[3*b])/2, (out[3*a+1]+out[3*b+1])/2, (out[3*a+2]+out[3*b+2])/2);
+      mid.set(key, i);
+    }
+    return i;
+  };
+  for (let t = 0; t < tris.length; t += 3){
+    const a = tris[t], b = tris[t+1], c = tris[t+2];
+    const ab = m(a, b), bc = m(b, c), ca = m(c, a);
+    next.push(a, ab, ca,  ab, b, bc,  ca, bc, c,  ab, bc, ca);
+  }
+  return { pos: out, tris: next };
+}
+
+function cluster(pos, tris, cell){
+  const map = new Map(), sums = [], remap = new Int32Array(pos.length / 3);
+  for (let i = 0; i < pos.length / 3; i++){
+    const key = `${Math.floor(pos[3*i]/cell)},${Math.floor(pos[3*i+1]/cell)},${Math.floor(pos[3*i+2]/cell)}`;
+    let j = map.get(key);
+    if (j === undefined){ j = sums.length; map.set(key, j); sums.push([0, 0, 0, 0]); }
+    const s = sums[j]; s[0] += pos[3*i]; s[1] += pos[3*i+1]; s[2] += pos[3*i+2]; s[3]++;
+    remap[i] = j;
+  }
+  const out = [];
+  for (const s of sums) out.push(s[0]/s[3], s[1]/s[3], s[2]/s[3]);
+  const seen = new Set(), next = [];
+  for (let t = 0; t < tris.length; t += 3){
+    const a = remap[tris[t]], b = remap[tris[t+1]], c = remap[tris[t+2]];
+    if (a === b || b === c || c === a) continue;
+    const key = [a, b, c].sort((x, y) => x - y).join(',');
+    if (seen.has(key)) continue;
+    seen.add(key); next.push(a, b, c);
+  }
+  return { pos: out, tris: next };
+}
+
+function remesh(pos, tris, h){
+  let e = avgEdge(pos, tris);
+  while (e > 1.4 * h && tris.length / 3 * 4 <= MAX_TRIS){
+    ({ pos, tris } = subdivide(pos, tris));
+    e /= 2;
+  }
+  if (e < 0.6 * h) ({ pos, tris } = cluster(pos, tris, h * 0.8));
+  while (tris.length / 3 > MAX_TRIS) ({ pos, tris } = cluster(pos, tris, (h *= 1.3)));
+  return { pos, tris };
+}
+
+// world-space triangles of an imported / primitive source
+function sourceTriangles(obj){
+  obj.container.updateMatrixWorld(true);
+  const pos = [], idx = [];
+  const v = new THREE.Vector3();
+  obj.container.traverse(c => {
+    if (!c.isMesh || c.userData.helper) return;
+    const g = c.geometry, p = g.attributes.position;
+    if (!p) return;
+    const base = pos.length / 3;
+    for (let i = 0; i < p.count; i++){
+      v.fromBufferAttribute(p, i).applyMatrix4(c.matrixWorld);
+      pos.push(v.x, v.y, v.z);
+    }
+    if (g.index) for (let i = 0; i < g.index.count; i++) idx.push(base + g.index.getX(i));
+    else for (let i = 0; i < p.count; i++) idx.push(base + i);
+  });
+  return { pos, idx };
+}
+
+/* ============================== cloth ============================== */
+// XPBD with "small steps": many substeps, one constraint pass each. Links are
+// tension-only (a chain can't push), bending is a distance constraint across each
+// interior edge. Each cloth's self-weight is 1 regardless of resolution, so weights
+// are a fraction of the object's own weight.
+
+class Cloth {
+  constructor(obj, pos, tris, edges, edgeRest, mass){
+    this.obj = obj;
+    this.n = pos.length / 3;
+    this.x = new Float32Array(pos);
+    this.rest = new Float32Array(pos);
+    this.p = new Float32Array(pos);
+    this.v = new Float32Array(pos.length);
+    this.mass = mass;
+    this.load = new Float32Array(this.n);
+    this.w = new Float32Array(this.n);
+    this.tris = tris ? new Uint32Array(tris) : null;
+    this.edges = new Uint32Array(edges);
+    this.nEdges = edgeRest.length;
+    this.edgeRest = new Float32Array(edgeRest);
+    this.edgeForce = new Float32Array(edgeRest.length);
+    this.anchors = new Map();       // i -> {target, home, marker}
+    this.buildBends();
+    this.buildBoundary();
+    this.buildView();
+    this.updateInvMass();
+  }
+
+  buildBends(){
+    const bends = [], rest = [];
+    if (this.tris){
+      const first = new Map();
+      const t = this.tris, x = this.x, N = this.n;
+      for (let k = 0; k < t.length; k += 3){
+        for (let e = 0; e < 3; e++){
+          const a = t[k+e], b = t[k+(e+1)%3], opp = t[k+(e+2)%3];
+          const key = a < b ? a * N + b : b * N + a;
+          const o = first.get(key);
+          if (o === undefined) first.set(key, opp);
+          else if (o !== opp){
+            bends.push(o, opp);
+            rest.push(Math.hypot(x[3*o]-x[3*opp], x[3*o+1]-x[3*opp+1], x[3*o+2]-x[3*opp+2]));
+          }
+        }
+      }
+    } else {
+      // chains and nets: bend across each particle with exactly two links in line
+      const nb = Array.from({ length: this.n }, () => []);
+      for (let e = 0; e < this.nEdges; e++){ nb[this.edges[2*e]].push(this.edges[2*e+1]); nb[this.edges[2*e+1]].push(this.edges[2*e]); }
+      const x = this.x;
+      for (let i = 0; i < this.n; i++){
+        if (nb[i].length !== 2) continue;
+        const [a, b] = nb[i];
+        bends.push(a, b);
+        rest.push(Math.hypot(x[3*a]-x[3*b], x[3*a+1]-x[3*b+1], x[3*a+2]-x[3*b+2]));
+      }
+      this.degree = nb.map(l => l.length);
+    }
+    this.bends = new Uint32Array(bends);
+    this.bendRest = new Float32Array(rest);
+  }
+
+  buildBoundary(){
+    const b = new Set();
+    if (this.tris){
+      const count = new Map(), N = this.n, t = this.tris;
+      for (let k = 0; k < t.length; k += 3) for (let e = 0; e < 3; e++){
+        const a = t[k+e], c = t[k+(e+1)%3];
+        const key = a < c ? a * N + c : c * N + a;
+        count.set(key, (count.get(key) || 0) + 1);
+      }
+      count.forEach((c, key) => { if (c === 1){ b.add(Math.floor(key / N)); b.add(key % N); } });
+    } else this.degree.forEach((d, i) => { if (d === 1) b.add(i); });
+    this.boundary = [...b];
+  }
+
+  buildView(){
+    this.group = new THREE.Group();
+    this.group.userData.cloth = this;
+    if (this.tris){
+      const g = new THREE.BufferGeometry();
+      this.posAttr = new THREE.BufferAttribute(this.x, 3);
+      this.posAttr.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute('position', this.posAttr);
+      g.setIndex(new THREE.BufferAttribute(this.tris, 1));
+      g.computeVertexNormals();
+      this.surface = new THREE.Mesh(g, clothMat);
+      this.surface.castShadow = true;
+      this.surface.receiveShadow = true;
+      this.surface.frustumCulled = false;
+      this.group.add(this.surface);
+    }
+    const lg = new LineSegmentsGeometry();
+    lg.setPositions(new Float32Array(this.nEdges * 6));
+    lg.setColors(new Float32Array(this.nEdges * 6));
+    this.lines = new LineSegments2(lg, lineMat);
+    this.lines.frustumCulled = false;
+    this.group.add(this.lines);
+    this.weights = new THREE.Group();
+    this.group.add(this.weights);
+    // shared gizmo handle for the selected anchor
+    this.anchorHandle = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), handleMat);
+    this.anchorHandle.visible = false;
+    this.anchorHandle.userData.helper = true;
+    this.group.add(this.anchorHandle);
+    hangGroup.add(this.group);
+    this.applyDisplay();
+  }
+
+  applyDisplay(){
+    if (this.surface) this.surface.visible = display !== 'net';
+    this.lines.visible = display !== 'surface' || !this.surface;
+  }
+
+  totalMass(){ let s = 0; for (let i = 0; i < this.n; i++) s += this.mass[i]; return s; }
+
+  updateInvMass(){
+    for (let i = 0; i < this.n; i++)
+      this.w[i] = this.anchors.has(i) ? 0 : 1 / (this.mass[i] + this.load[i]);
+  }
+
+  toggleAnchor(i, on = !this.anchors.has(i), target = null){
+    if (on && !this.anchors.has(i)){
+      const marker = new THREE.Mesh(markerGeo, anchorMat);
+      marker.add(new THREE.LineSegments(markerEdgeGeo, anchorEdgeMat));
+      marker.userData.helper = true;
+      this.group.add(marker);
+      const at = new THREE.Vector3(this.x[3*i], this.x[3*i+1], this.x[3*i+2]);
+      const t = target ? target.clone() : at;
+      this.anchors.set(i, { target: t, home: t.clone(), marker });
+    } else if (!on && this.anchors.has(i)){
+      const a = this.anchors.get(i);
+      this.group.remove(a.marker);
+      this.anchors.delete(i);
+      if (selectedAnchor?.cloth === this && selectedAnchor.i === i) selectAnchor(null);
+    }
+    this.updateInvMass();
+  }
+
+  addLoad(i, m){
+    this.load[i] = Math.max(0, this.load[i] + m);
+    this.updateInvMass();
+    this.rebuildWeights();
+  }
+
+  rebuildWeights(){
+    this.weights.clear();
+    for (let i = 0; i < this.n; i++){
+      if (this.load[i] <= 0) continue;
+      const s = new THREE.Mesh(weightGeo, weightMat);
+      s.scale.setScalar(0.05 + 0.13 * Math.cbrt(this.load[i]));
+      s.castShadow = true;
+      s.userData.i = i;
+      this.weights.add(s);
+    }
+  }
+
+  resetToRest(){
+    this.x.set(this.rest); this.p.set(this.rest); this.v.fill(0);
+    this.edgeForce.fill(0);
+    this.anchors.forEach(a => a.target.copy(a.home));
+  }
+
+  step(dt){
+    const { x, p, v, w, n } = this;
+    const g = params.gravity, damp = Math.max(0, 1 - params.damping * dt);
+    for (let i = 0; i < n; i++){
+      const k = 3*i;
+      p[k] = x[k]; p[k+1] = x[k+1]; p[k+2] = x[k+2];
+      if (w[i] === 0) continue;
+      v[k] *= damp; v[k+1] = (v[k+1] - g * dt) * damp; v[k+2] *= damp;
+      x[k] += v[k] * dt; x[k+1] += v[k+1] * dt; x[k+2] += v[k+2] * dt;
+    }
+    // anchors glide to their targets
+    const maxMove = ANCHOR_SPEED * dt;
+    this.anchors.forEach((a, i) => {
+      const k = 3*i;
+      const dx = a.target.x - x[k], dy = a.target.y - x[k+1], dz = a.target.z - x[k+2];
+      const d = Math.hypot(dx, dy, dz);
+      const s = d > maxMove ? maxMove / d : 1;
+      x[k] += dx * s; x[k+1] += dy * s; x[k+2] += dz * s;
+    });
+
+    // links: tension only, compliance = L / EA
+    const E = this.edges, R = this.edgeRest, F = this.edgeForce;
+    const invEA = 1 / stretchEA(), idt2 = 1 / (dt * dt);
+    for (let e = 0; e < this.nEdges; e++){
+      const a = E[2*e], b = E[2*e+1];
+      const wa = w[a], wb = w[b];
+      const ka = 3*a, kb = 3*b;
+      const dx = x[kb]-x[ka], dy = x[kb+1]-x[ka+1], dz = x[kb+2]-x[ka+2];
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const C = d - R[e];
+      if (C <= 0 || d < 1e-9){ F[e] = 0; continue; }
+      const alpha = R[e] * invEA * idt2;
+      const den = wa + wb + alpha;
+      if (den === 0){ F[e] = 0; continue; }
+      const lambda = C / den;
+      F[e] = lambda * idt2;
+      const s = lambda / d;
+      x[ka] += wa * s * dx; x[ka+1] += wa * s * dy; x[ka+2] += wa * s * dz;
+      x[kb] -= wb * s * dx; x[kb+1] -= wb * s * dy; x[kb+2] -= wb * s * dz;
+    }
+
+    // bending
+    if (params.bending > 0){
+      const B = this.bends, BR = this.bendRest;
+      const alphaB = bendCompliance() * idt2;
+      for (let e = 0; e < BR.length; e++){
+        const a = B[2*e], b = B[2*e+1];
+        const wa = w[a], wb = w[b];
+        const ka = 3*a, kb = 3*b;
+        const dx = x[kb]-x[ka], dy = x[kb+1]-x[ka+1], dz = x[kb+2]-x[ka+2];
+        const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+        const den = wa + wb + alphaB * BR[e];
+        if (den === 0 || d < 1e-9) continue;
+        const s = (d - BR[e]) / den / d;
+        x[ka] += wa * s * dx; x[ka+1] += wa * s * dy; x[ka+2] += wa * s * dz;
+        x[kb] -= wb * s * dx; x[kb+1] -= wb * s * dy; x[kb+2] -= wb * s * dz;
+      }
+    }
+
+    // ground
+    for (let i = 0; i < n; i++){
+      const k = 3*i;
+      if (x[k+1] < 0){ x[k+1] = 0; x[k] = 0.6*x[k] + 0.4*p[k]; x[k+2] = 0.6*x[k+2] + 0.4*p[k+2]; }
+    }
+    const idt = 1 / dt;
+    for (let k = 0; k < 3*n; k++) v[k] = (x[k] - p[k]) * idt;
+  }
+
+  updateView(tensionScale){
+    if (this.surface){
+      this.posAttr.needsUpdate = true;
+      this.surface.geometry.computeVertexNormals();
+      this.surface.geometry.computeBoundingSphere();
+    }
+    if (this.lines.visible){
+      const ia = this.lines.geometry.attributes.instanceStart.data;
+      const ca = this.lines.geometry.attributes.instanceColorStart.data;
+      const P = ia.array, C = ca.array, E = this.edges, F = this.edgeForce, x = this.x;
+      const editing = simState === SIM.EDIT;
+      for (let e = 0; e < this.nEdges; e++){
+        const a = 3*E[2*e], b = 3*E[2*e+1], k = 6*e;
+        P[k] = x[a]; P[k+1] = x[a+1]; P[k+2] = x[a+2];
+        P[k+3] = x[b]; P[k+4] = x[b+1]; P[k+5] = x[b+2];
+        if (editing) _c.copy(this.surface ? EDIT_SURF : EDIT_NET);
+        else if (F[e] <= 0) _c.copy(SLACK);
+        else _c.copy(TAUT_LO).lerp(TAUT_HI, Math.min(F[e] / tensionScale, 1));
+        C[k] = C[k+3] = _c.r; C[k+1] = C[k+4] = _c.g; C[k+2] = C[k+5] = _c.b;
+      }
+      ia.needsUpdate = true; ca.needsUpdate = true;
+    }
+    this.anchors.forEach((a, i) => a.marker.position.set(this.x[3*i], this.x[3*i+1], this.x[3*i+2]));
+    for (const s of this.weights.children){
+      const i = s.userData.i;
+      s.position.set(this.x[3*i], this.x[3*i+1] - s.scale.x - 0.02, this.x[3*i+2]);
+    }
+  }
+
+  maxForce(){ let m = 0; for (let e = 0; e < this.nEdges; e++) m = Math.max(m, this.edgeForce[e]); return m; }
+
+  dispose(){
+    hangGroup.remove(this.group);
+    this.surface?.geometry.dispose();
+    this.lines.geometry.dispose();
+    this.anchorHandle.geometry.dispose();
+  }
+}
+
+const ANCHOR_SPEED = 1.5;                         // world units per second
+const stretchEA = () => Math.pow(10, 4 - 3.5 * params.stretch);
+const bendCompliance = () => Math.pow(10, 2 - 6 * params.bending);
+const SLACK = new THREE.Color(0xc9c9c9), TAUT_LO = new THREE.Color(BLUE), TAUT_HI = new THREE.Color(INK);
+const EDIT_SURF = new THREE.Color(0xa8b4d8), EDIT_NET = new THREE.Color(0x6f86cc);
+const _c = new THREE.Color();
+
+// mesh source -> cloth
+function meshCloth(obj, resolution){
+  const { pos: rawPos, idx } = sourceTriangles(obj);
+  if (!idx.length) throw new Error('model has no triangles');
+  const box = new THREE.Box3().setFromArray(rawPos);
+  const size = box.getSize(new THREE.Vector3()), maxDim = Math.max(size.x, size.y, size.z);
+  const welded = weld(rawPos, idx, maxDim * 1e-5);
+  const { pos, tris } = remesh(welded.pos, welded.tris, maxDim / resolution);
+  // drop particles no triangle uses (left over from welding / clustering)
+  const used = new Int32Array(pos.length / 3).fill(-1), P = [];
+  const T = tris.map(i => { if (used[i] < 0){ used[i] = P.length / 3; P.push(pos[3*i], pos[3*i+1], pos[3*i+2]); } return used[i]; });
+  const n = P.length / 3, mass = new Float32Array(n);
+  const edges = [], rest = [], seen = new Set();
+  let area = 0;
+  for (let t = 0; t < T.length; t += 3){
+    const a = T[t], b = T[t+1], c = T[t+2];
+    const ux = P[3*b]-P[3*a], uy = P[3*b+1]-P[3*a+1], uz = P[3*b+2]-P[3*a+2];
+    const vx = P[3*c]-P[3*a], vy = P[3*c+1]-P[3*a+1], vz = P[3*c+2]-P[3*a+2];
+    const ar = 0.5 * Math.hypot(uy*vz-uz*vy, uz*vx-ux*vz, ux*vy-uy*vx);
+    mass[a] += ar/3; mass[b] += ar/3; mass[c] += ar/3; area += ar;
+    for (const [i, j] of [[a,b],[b,c],[c,a]]){
+      const key = i < j ? i * n + j : j * n + i;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push(i, j);
+      rest.push(Math.hypot(P[3*i]-P[3*j], P[3*i+1]-P[3*j+1], P[3*i+2]-P[3*j+2]));
+    }
+  }
+  for (let i = 0; i < n; i++) mass[i] = Math.max(mass[i] / area, 1e-6);
+  return new Cloth(obj, P, T, edges, rest, mass);
+}
+
+// net source (nodes + links with slack) -> chain cloth. Each link is split into
+// pieces of about h; the rest length is the straight distance times its slack.
+function netCloth(obj, resolution){
+  obj.container.updateMatrixWorld(true);
+  const net = obj.source.net;
+  const nodes = net.nodes.map(p => new THREE.Vector3(...p).applyMatrix4(obj.container.matrixWorld));
+  let maxDim = 0;
+  const bb = new THREE.Box3().setFromPoints(nodes);
+  maxDim = Math.max(...bb.getSize(new THREE.Vector3()).toArray(), 0.5);
+  const h = maxDim / resolution;
+  const P = [], edges = [], rest = [];
+  nodes.forEach(v => P.push(v.x, v.y, v.z));
+  for (const [i, j, slack = 1] of net.edges){
+    const a = nodes[i], b = nodes[j];
+    const L = a.distanceTo(b) * slack;
+    const k = Math.max(1, Math.round(L / h));
+    let prev = i;
+    for (let s = 1; s <= k; s++){
+      let cur;
+      if (s === k) cur = j;
+      else {
+        cur = P.length / 3;
+        const q = a.clone().lerp(b, s / k);
+        P.push(q.x, q.y, q.z);
+      }
+      edges.push(prev, cur); rest.push(L / k);
+      prev = cur;
+    }
+  }
+  const n = P.length / 3, mass = new Float32Array(n);
+  let total = 0;
+  for (let e = 0; e < rest.length; e++){ mass[edges[2*e]] += rest[e]/2; mass[edges[2*e+1]] += rest[e]/2; total += rest[e]; }
+  for (let i = 0; i < n; i++) mass[i] = Math.max(mass[i] / total, 1e-6);
+  return new Cloth(obj, P, null, edges, rest, mass);
+}
+
+/* ============================== objects ============================== */
+
+function makeContainer(root, { targetSize = null } = {}){
+  root.updateMatrixWorld(true);
+  const bbox = new THREE.Box3().setFromObject(root);
+  const size = bbox.getSize(new THREE.Vector3()), center = bbox.getCenter(new THREE.Vector3());
+  const s = targetSize ? targetSize / (Math.max(size.x, size.y, size.z) || 1) : 1;
+  const container = new THREE.Group();
+  root.position.sub(center).multiplyScalar(s);
+  root.scale.multiplyScalar(s);
+  container.add(root);
+  return container;
+}
+
+function registerObject(name, source, container){
+  const obj = { id: nextObjId++, name, source, container, cloth: null, resolution: params.resolution };
+  container.userData.pick = { id: obj.id };
+  container.traverse(c => { if (c.isMesh){ c.castShadow = true; c.receiveShadow = true; } });
+  objects.set(obj.id, obj);
+  scene.add(container);
+  markObjectList();
+  refreshStats();
+  return obj;
+}
+
+const PRIMS = {
+  sheet:  () => new THREE.PlaneGeometry(3, 3, 1, 1).rotateX(-Math.PI/2),
+  disc:   () => new THREE.CircleGeometry(1.5, 40).rotateX(-Math.PI/2),
+  sphere: () => new THREE.SphereGeometry(1.1, 28, 18),
+  torus:  () => new THREE.TorusGeometry(1.1, 0.38, 14, 40).rotateX(Math.PI/2),
+  tube:   () => new THREE.CylinderGeometry(0.8, 0.8, 2.4, 32, 1, true),
+};
+
+function netObject(net){
+  const g = new THREE.BufferGeometry();
+  const pts = [];
+  for (const [i, j] of net.edges) pts.push(...net.nodes[i], ...net.nodes[j]);
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+  const lines = new THREE.LineSegments(g, sourceLineMat);
+  const root = new THREE.Group();
+  root.add(lines);
+  // nodes as small ink cubes so the net can be seen and picked before it is cloth
+  for (const n of net.nodes){
+    const m = new THREE.Mesh(markerGeo, modelMat);
+    m.position.fromArray(n);
+    root.add(m);
+  }
+  return root;
+}
+
+function primitiveNet(kind){
+  if (kind === 'chain') return { nodes: [[-2, 0, 0], [2, 0, 0]], edges: [[0, 1, 1]] };
+  // square chain net, 8 x 8 cells
+  const N = 8, S = 3, nodes = [], edges = [];
+  for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++) nodes.push([-S/2 + S*i/N, 0, -S/2 + S*j/N]);
+  const id = (i, j) => i * (N + 1) + j;
+  for (let i = 0; i <= N; i++) for (let j = 0; j <= N; j++){
+    if (i < N) edges.push([id(i, j), id(i+1, j), 1]);
+    if (j < N) edges.push([id(i, j), id(i, j+1), 1]);
+  }
+  return { nodes, edges };
+}
+
+function createPrimitive(kind, { place = true } = {}){
+  let obj;
+  if (kind === 'chain' || kind === 'net'){
+    const net = primitiveNet(kind);
+    obj = registerObject(kind === 'chain' ? `Chain ${nextObjId}` : `Net ${nextObjId}`, { prim: kind, net }, makeContainer(netObject(net)));
+  } else {
+    const mesh = new THREE.Mesh(PRIMS[kind](), modelMat);
+    obj = registerObject(`${kind[0].toUpperCase() + kind.slice(1)} ${nextObjId}`, { prim: kind }, makeContainer(mesh));
+  }
+  if (place) obj.container.position.set(0, HANG_HEIGHT, 0);
+  return obj;
+}
+
+async function parseModel(buffer, format){
+  let root;
+  if (format === 'fbx') root = new FBXLoader().parse(buffer, '');
+  else if (format === 'obj') root = new OBJLoader().parse(new TextDecoder().decode(buffer));
+  else if (format === 'glb' || format === 'gltf') root = (await new GLTFLoader().parseAsync(buffer, '')).scene;
+  else if (format === 'stl') root = new THREE.Mesh(new STLLoader().parse(buffer), modelMat);
+  else throw new Error(`unsupported format .${format}`);
+  // one neutral material: the model is only the starting form of the cloth
+  root.traverse(c => { if (c.isMesh) c.material = modelMat; });
+  return root;
+}
+
+async function createModel(buffer, name, format, { src = null, size = MODEL_SIZE } = {}){
+  const root = await parseModel(buffer, format);
+  const source = src ? { src, format, size } : { data: buffer, format, size };
+  return registerObject(name, source, makeContainer(root, { targetSize: size }));
+}
+
+async function loadModelFile(file){
+  if (!requireEdit()) return;
+  const format = file.name.split('.').pop().toLowerCase();
+  toast(`Loading ${file.name}…`);
+  try{
+    const obj = await createModel(await file.arrayBuffer(), file.name.replace(/\.[^.]+$/, ''), format);
+    obj.container.position.set(0, HANG_HEIGHT, 0);
+    selectObject(obj);
+    frameAll();
+    toast(`Loaded ${obj.name} — position it, then 02 Make cloth`);
+  }catch(err){
+    console.error(err);
+    toast(`Could not read ${file.name}: ${err.message || err}`, true);
+  }
+}
+
+function makeCloth(obj, resolution = params.resolution){
+  if (obj.cloth) return obj.cloth;
+  obj.resolution = resolution;
+  obj.cloth = obj.source.net ? netCloth(obj, resolution) : meshCloth(obj, resolution);
+  obj.container.visible = false;
+  if (selectedObj === obj) gizmo.detach();
+  if (selBox && selectedObj === obj){ scene.remove(selBox); selBox = null; }
+  obj.cloth.updateView(1);
+  return obj.cloth;
+}
+
+function uncloth(obj){
+  if (!obj.cloth) return;
+  if (selectedAnchor?.cloth === obj.cloth) selectAnchor(null);
+  obj.cloth.dispose();
+  obj.cloth = null;
+  obj.container.visible = true;
+}
+
+function removeObject(id){
+  const obj = objects.get(id);
+  if (!obj) return;
+  uncloth(obj);
+  if (selectedObj === obj) deselect();
+  scene.remove(obj.container);
+  obj.container.traverse(c => { if (c.isMesh || c.isLine) c.geometry?.dispose(); });
+  objects.delete(id);
+  markObjectList();
+  refreshStats();
+}
+
+function clearScene(){
+  if (simState !== SIM.EDIT) stopHanging(false);
+  setInverted(false);
+  deselect();
+  for (const id of [...objects.keys()]) removeObject(id);
+  nextObjId = 1;
+}
+
+/* ============================== selection ============================== */
+
+function selectObject(obj){
+  deselect();
+  selectedObj = obj;
+  if (!obj.cloth && simState === SIM.EDIT && !inverted){
+    gizmo.setMode(gizmoMode);
+    gizmo.attach(obj.container);
+    selBox = new THREE.BoxHelper(obj.container, BLUE);
+    scene.add(selBox);
+  }
+  markObjectList();
+}
+
+function deselect(){
+  if (!selectedAnchor) gizmo.detach();
+  if (selBox){ scene.remove(selBox); selBox.geometry.dispose(); selBox = null; }
+  if (selectedObj){ selectedObj = null; markObjectList(); }
+}
+
+let gizmoMode = 'translate';
+function selectAnchor(sel){
+  if (selectedAnchor){
+    selectedAnchor.cloth.anchorHandle.visible = false;
+    gizmo.detach();
+  }
+  selectedAnchor = sel;
+  if (sel){
+    deselect();
+    const a = sel.cloth.anchors.get(sel.i);
+    const h = sel.cloth.anchorHandle;
+    h.position.copy(a.target);
+    h.visible = true;
+    gizmo.setMode('translate');
+    gizmo.attach(h);
+  }
+}
+
+/* ============================== picking ============================== */
+
+const raycaster = new THREE.Raycaster();
+raycaster.params.Line.threshold = 0.01;
+const pointerNdc = new THREE.Vector2();
+let downX = 0, downY = 0, downOnGizmo = false;
+const _v = new THREE.Vector3();
+
+function canvasPoint(clientX, clientY){
+  const r = renderer.domElement.getBoundingClientRect();
+  return { r, x: clientX - r.left, y: clientY - r.top };
+}
+
+// nearest cloth particle in screen space (within a few pixels), front-most wins ties
+function pickParticle(clientX, clientY, radius = 14){
+  const { r, x, y } = canvasPoint(clientX, clientY);
+  camera.updateMatrixWorld();
+  hangGroup.updateMatrixWorld(true);
+  let best = null, bestScore = Infinity;
+  for (const c of clothList()){
+    const X = c.x, m = c.group.matrixWorld;
+    for (let i = 0; i < c.n; i++){
+      _v.set(X[3*i], X[3*i+1], X[3*i+2]).applyMatrix4(m).project(camera);
+      if (_v.z > 1) continue;
+      const sx = (_v.x + 1) / 2 * r.width, sy = (1 - _v.y) / 2 * r.height;
+      const d = Math.hypot(sx - x, sy - y);
+      if (d > radius) continue;
+      const score = d + _v.z * 4;            // prefer nearer the cursor, then nearer the camera
+      if (score < bestScore){ bestScore = score; best = { cloth: c, i }; }
+    }
+  }
+  return best;
+}
+
+function pickObject(clientX, clientY){
+  const { r, x, y } = canvasPoint(clientX, clientY);
+  pointerNdc.set(x / r.width * 2 - 1, -(y / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointerNdc, camera);
+  const targets = [...objects.values()].filter(o => !o.cloth).map(o => o.container);
+  for (const hit of raycaster.intersectObjects(targets, true)){
+    let o = hit.object;
+    while (o && !o.userData.pick) o = o.parent;
+    if (o) return objects.get(o.userData.pick.id);
+  }
+  return null;
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  downX = e.clientX; downY = e.clientY;
+  downOnGizmo = gizmo.object && gizmo.axis !== null;
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  if (e.button !== 0 || downOnGizmo) return;
+  if (Math.hypot(e.clientX - downX, e.clientY - downY) > 6) return;
+  handleClick(e.clientX, e.clientY, e.shiftKey);
+});
+
+function handleClick(x, y, shift){
+  if (inverted){ toast('Flip back (I) to edit'); return; }
+  const clothed = clothList().length > 0;
+  if (clothed){
+    const hit = pickParticle(x, y);
+    if (tool === TOOLS.PIN){
+      if (!hit) return;
+      hit.cloth.toggleAnchor(hit.i);
+      refreshStats();
+      return;
+    }
+    if (tool === TOOLS.WEIGHT){
+      if (!hit) return;
+      const m = shift ? -Infinity : params.load / 100 * hit.cloth.totalMass();
+      hit.cloth.addLoad(hit.i, m);
+      return;
+    }
+    if (tool === TOOLS.MOVE){
+      if (hit && hit.cloth.anchors.has(hit.i)) selectAnchor(hit);
+      else selectAnchor(null);
+      return;
+    }
+  }
+  if (simState !== SIM.EDIT) return;
+  const obj = pickObject(x, y);
+  if (obj) selectObject(obj); else deselect();
+}
+
+/* ============================== auto anchors ============================== */
+
+function autoAnchors(kind){
+  if (!requireEdit()) return;
+  const cloths = clothList();
+  if (!cloths.length) return;
+  for (const c of cloths){
+    const X = c.x;
+    if (kind === 'clear'){ for (const i of [...c.anchors.keys()]) c.toggleAnchor(i, false); continue; }
+    if (kind === 'top'){
+      let best = 0;
+      for (let i = 1; i < c.n; i++) if (X[3*i+1] > X[3*best+1]) best = i;
+      c.toggleAnchor(best, true);
+      continue;
+    }
+    const cand = c.boundary.length ? c.boundary : [...Array(c.n).keys()];
+    if (kind === 'boundary'){
+      // every boundary particle, thinned to about 24 anchors per object
+      const stride = Math.max(1, Math.round(cand.length / 24));
+      cand.forEach((i, k) => { if (k % stride === 0) c.toggleAnchor(i, true); });
+      continue;
+    }
+    if (kind === 'corners'){
+      // the boundary particles farthest out along the four horizontal diagonals
+      let cx = 0, cz = 0;
+      for (const i of cand){ cx += X[3*i]; cz += X[3*i+2]; }
+      cx /= cand.length; cz /= cand.length;
+      for (const [dx, dz] of [[1,1],[1,-1],[-1,1],[-1,-1]]){
+        let best = -1, bs = -Infinity;
+        for (const i of cand){
+          const s = (X[3*i]-cx)*dx + (X[3*i+2]-cz)*dz + X[3*i+1] * 0.01;
+          if (s > bs){ bs = s; best = i; }
+        }
+        if (best >= 0) c.toggleAnchor(best, true);
+      }
+    }
+  }
+  refreshStats();
+  toast(kind === 'clear' ? 'Anchors cleared' : 'Anchors placed — press Hang');
+}
+
+// slide every anchor horizontally toward (f < 0) or away from its cloth's anchor centre.
+// A flat sheet can only sag if its supports come closer than its own size.
+function gatherAnchors(f){
+  let moved = 0;
+  for (const c of clothList()){
+    if (c.anchors.size < 2) continue;
+    let cx = 0, cz = 0;
+    c.anchors.forEach(a => { cx += a.target.x; cz += a.target.z; });
+    cx /= c.anchors.size; cz /= c.anchors.size;
+    c.anchors.forEach(a => {
+      a.target.x += (a.target.x - cx) * f;
+      a.target.z += (a.target.z - cz) * f;
+      if (simState === SIM.EDIT) a.home.copy(a.target);
+      moved++;
+    });
+  }
+  if (selectedAnchor) selectedAnchor.cloth.anchorHandle.position.copy(selectedAnchor.cloth.anchors.get(selectedAnchor.i).target);
+  toast(moved ? (f < 0 ? 'Anchors gathered — the cloth gets slack' : 'Anchors spread') : 'Needs at least two anchors', !moved);
+}
+
+/* ============================== simulation ============================== */
+
+let tensionScale = 1;
+
+function startHanging(){
+  const cloths = clothList();
+  if (!cloths.length) return toast('Make cloth first', true);
+  if (!cloths.some(c => c.anchors.size)) toast('No anchors — it will just fall. Pin some points.', true);
+  selectAnchor(selectedAnchor);  // keep a selected anchor attached
+  cloths.forEach(c => c.anchors.forEach(a => a.home.copy(a.target)));
+  simState = SIM.RUNNING;
+  setPlayLabel('Pause');
+  updateHint();
+}
+
+function stopHanging(restore){
+  simState = SIM.EDIT;
+  if (restore) clothList().forEach(c => c.resetToRest());
+  setPlayLabel('Hang');
+  $('simstats').textContent = '';
+  if (selectedAnchor) selectAnchor(selectedAnchor);
+  updateHint();
+}
+
+function stepAll(frames = 1){
+  const sub = params.substeps, dt = 1 / 60 / sub;
+  const cloths = clothList();
+  for (let f = 0; f < frames; f++) for (let s = 0; s < sub; s++) for (const c of cloths) c.step(dt);
+}
+
+let statsTimer = 0;
+function updateSimStats(now){
+  if (now - statsTimer < 300) return;
+  statsTimer = now;
+  let max = 0, taut = 0, total = 0, low = Infinity;
+  for (const c of clothList()){
+    max = Math.max(max, c.maxForce());
+    for (let e = 0; e < c.nEdges; e++) if (c.edgeForce[e] > 0) taut++;
+    total += c.nEdges;
+    for (let i = 0; i < c.n; i++) low = Math.min(low, c.x[3*i+1]);
+  }
+  $('simstats').textContent = `${taut}/${total} links in tension · max ${max.toFixed(1)} · lowest ${low.toFixed(2)} m`;
+}
+
+function setInverted(on){
+  inverted = on;
+  $('p-invert').checked = on;
+  document.body.classList.toggle('inverted', on);
+  if (on){
+    // mirror about the highest anchor: the anchors become the supports on the ground
+    let top = -Infinity;
+    clothList().forEach(c => c.anchors.forEach(a => top = Math.max(top, a.target.y)));
+    if (!isFinite(top)) clothList().forEach(c => { for (let i = 0; i < c.n; i++) top = Math.max(top, c.x[3*i+1]); });
+    if (!isFinite(top)) top = 0;
+    hangGroup.scale.y = -1;
+    hangGroup.position.y = top;
+    gizmo.detach();
+    if (selectedAnchor) selectedAnchor.cloth.anchorHandle.visible = false;
+  } else {
+    hangGroup.scale.y = 1;
+    hangGroup.position.y = 0;
+    if (selectedAnchor) selectAnchor(selectedAnchor);
+  }
+  frameAll();
+  updateHint();
+}
+
+/* ============================== presets ============================== */
+// Presets are scene descriptions, loaded through the same path as saved files.
+
+const R2 = v => Math.round(v * 1000) / 1000;
+
+function circleNodes(n, r, y, phase = 0){
+  return Array.from({ length: n }, (_, i) => [R2(r * Math.cos(phase + i * 2*Math.PI/n)), y, R2(r * Math.sin(phase + i * 2*Math.PI/n))]);
+}
+
+const slackNet = (net, slack) => ({ nodes: net.nodes, edges: net.edges.map(([i, j]) => [i, j, slack]) });
+
+const PRESETS = {
+  catenary: () => ({
+    params: { stretch: 0, bending: 0, damping: 1.5 }, display: 'net',
+    objects: [{ name: 'Chain', source: { net: { nodes: [[-2.4, 0, 0], [2.4, 0, 0]], edges: [[0, 1, 1.35]] } },
+      position: [0, 4.6, 0], cloth: { resolution: 60 }, anchors: [[-2.4, 4.6, 0], [2.4, 4.6, 0]] }],
+  }),
+  arches: () => {
+    const objects = [];
+    [1.08, 1.2, 1.35, 1.55, 1.8].forEach((slack, k) => {
+      const z = -2 + k;
+      objects.push({ name: `Chain ${k+1} — slack ${slack}`, source: { net: { nodes: [[-2.2, 0, 0], [2.2, 0, 0]], edges: [[0, 1, slack]] } },
+        position: [0, 5.2, z], cloth: { resolution: 50 }, anchors: [[-2.2, 5.2, z], [2.2, 5.2, z]] });
+    });
+    return { params: { stretch: 0, bending: 0, damping: 1.5 }, display: 'net', objects };
+  },
+  guell: () => {
+    // ring of eight supports, chains along the ring and to a crown node; sachets on
+    // the crown and on the mid-points of the spokes, as in the Colònia Güell model
+    const ring = circleNodes(8, 2.6, 0), nodes = [...ring, [0, 0, 0]];
+    const mids = [];
+    ring.forEach(p => mids.push([R2(p[0] * 0.5), 0, R2(p[2] * 0.5)]));
+    nodes.push(...mids);
+    const edges = [];
+    for (let i = 0; i < 8; i++){
+      edges.push([i, (i+1) % 8, 1.22]);         // arches between supports
+      edges.push([i, 9 + i, 1.12]);             // spoke, outer half
+      edges.push([9 + i, 8, 1.12]);             // spoke, inner half
+      edges.push([9 + i, 9 + (i+1) % 8, 1.3]);  // ring of the mid-points
+    }
+    const Y = 5.4;
+    return {
+      params: { stretch: 0, bending: 0, damping: 2 }, display: 'net',
+      objects: [{ name: 'Güell network', source: { net: { nodes, edges } }, position: [0, Y, 0], cloth: { resolution: 40 },
+        anchors: ring.map(p => [p[0], Y, p[2]]),
+        loads: [[0, Y, 0, 0.35], ...mids.map(p => [p[0], Y, p[2], 0.08])] }],
+    };
+  },
+  // sheets: pinned at their edge, then the anchors slide inward so the cloth has slack
+  vault: () => ({
+    params: { stretch: 0.5, bending: 0.12 }, display: 'both',
+    objects: [{ name: 'Sheet', source: { prim: 'sheet' }, position: [0, 4.6, 0], cloth: { resolution: 30 },
+      anchors: [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, z]) => ({ at: [1.5*x, 4.6, 1.5*z], to: [1.1*x, 4.6, 1.1*z] })) }],
+  }),
+  dome: () => ({
+    params: { stretch: 0.5, bending: 0.1 }, display: 'both',
+    objects: [{ name: 'Disc', source: { prim: 'disc' }, position: [0, 4.4, 0], cloth: { resolution: 24 },
+      anchors: circleNodes(10, 1.5, 4.4).map(p => ({ at: p, to: [R2(p[0]*0.77), p[1], R2(p[2]*0.77)] })) }],
+  }),
+  net: () => ({
+    params: { stretch: 0.25, bending: 0 }, display: 'net',
+    objects: [{ name: 'Net', source: { net: slackNet(primitiveNet('net'), 1.12) }, position: [0, 4.6, 0], cloth: { resolution: 40 },
+      anchors: [[-1.5, 4.6, -1.5], [1.5, 4.6, -1.5], [1.5, 4.6, 1.5], [-1.5, 4.6, 1.5], [0, 4.6, -1.5], [0, 4.6, 1.5], [-1.5, 4.6, 0], [1.5, 4.6, 0]] }],
+  }),
+  bag: () => ({
+    params: { stretch: 0.45, bending: 0.25 }, display: 'both',
+    objects: [{ name: 'Sphere', source: { prim: 'sphere' }, position: [0, 3.6, 0], cloth: { resolution: 26 },
+      anchors: [[0, 4.7, 0]] }],
+  }),
+};
+
+async function buildPreset(name){
+  if (!requireEdit()) return;
+  await loadScene({ format: 'hanging-lab', version: 1, ...PRESETS[name]() });
+  toast('Preset ready — press Hang (Space), then Invert (I)');
+}
+
+/* ============================== scene files ============================== */
+
+const v3 = v => [R2(v.x), R2(v.y), R2(v.z)];
+const q4 = q => [+q.x.toFixed(6), +q.y.toFixed(6), +q.z.toFixed(6), +q.w.toFixed(6)];
+
+function bufToB64(buf){
+  const bytes = new Uint8Array(buf);
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function b64ToBuf(b64){
+  const s = atob(b64), bytes = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+  return bytes.buffer;
+}
+function relativeToPage(href){
+  const dir = new URL('.', location.href).href;
+  return href.startsWith(dir) ? href.slice(dir.length) : href;
+}
+
+function serializeScene(){
+  const objs = [...objects.values()].map(obj => {
+    const s = obj.source, c = obj.container;
+    const source = s.net ? { ...(s.prim ? { prim: s.prim } : {}), net: s.net }
+      : s.prim ? { prim: s.prim }
+      : s.src ? { src: relativeToPage(s.src), format: s.format, size: s.size }
+      : { data: bufToB64(s.data), format: s.format, size: s.size };
+    const o = { name: obj.name, source, position: v3(c.position), quaternion: q4(c.quaternion), scale: v3(c.scale) };
+    if (obj.cloth){
+      const cl = obj.cloth, R = cl.rest;
+      o.cloth = { resolution: obj.resolution };
+      o.anchors = [...cl.anchors].map(([i, a]) => {
+        const at = [R2(R[3*i]), R2(R[3*i+1]), R2(R[3*i+2])], to = v3(simState === SIM.EDIT ? a.target : a.home);
+        return at.every((v, k) => v === to[k]) ? at : { at, to };
+      });
+      const loads = [];
+      for (let i = 0; i < cl.n; i++) if (cl.load[i] > 0) loads.push([R2(R[3*i]), R2(R[3*i+1]), R2(R[3*i+2]), +(cl.load[i] / cl.totalMass()).toFixed(4)]);
+      if (loads.length) o.loads = loads;
+    }
+    return o;
+  });
+  return {
+    format: 'hanging-lab', version: 1,
+    params: { gravity: params.gravity, stretch: params.stretch, bending: params.bending, damping: params.damping, substeps: params.substeps },
+    display, camera: { position: v3(camera.position), target: v3(orbit.target) },
+    objects: objs,
+  };
+}
+
+function nearestParticle(cloth, p){
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < cloth.n; i++){
+    const d = (cloth.x[3*i]-p[0])**2 + (cloth.x[3*i+1]-p[1])**2 + (cloth.x[3*i+2]-p[2])**2;
+    if (d < bd){ bd = d; best = i; }
+  }
+  return best;
+}
+
+async function loadScene(data, baseUrl = location.href){
+  if (data?.format !== 'hanging-lab') throw new Error('not a hanging-lab scene file');
+  clearScene();
+  Object.assign(params, { gravity: 9.8, stretch: 0.1, bending: 0.2, damping: 1, substeps: 20 }, data.params || {});
+  syncSliders();
+  setDisplay(data.display || 'both');
+  for (const o of data.objects){
+    const s = o.source;
+    let obj;
+    if (s.net){
+      obj = registerObject(o.name, { ...(s.prim ? { prim: s.prim } : {}), net: s.net }, makeContainer(netObject(s.net)));
+      // nets are authored in place: keep node coordinates as given
+      obj.container.children[0].position.set(0, 0, 0);
+      obj.container.children[0].scale.set(1, 1, 1);
+    } else if (s.prim) obj = createPrimitive(s.prim, { place: false });
+    else {
+      const href = s.data ? null : new URL(s.src, baseUrl).href;
+      const buf = s.data ? b64ToBuf(s.data)
+        : await fetch(href, { cache:'no-cache' }).then(r => { if (!r.ok) throw new Error(`${s.src}: HTTP ${r.status}`); return r.arrayBuffer(); });
+      obj = await createModel(buf, o.name, s.format, { src: href, size: s.size ?? MODEL_SIZE });
+    }
+    obj.name = o.name ?? obj.name;
+    obj.container.position.fromArray(o.position ?? [0, HANG_HEIGHT, 0]);
+    if (o.quaternion) obj.container.quaternion.fromArray(o.quaternion);
+    if (o.scale) obj.container.scale.fromArray(o.scale);
+    if (o.cloth){
+      const cl = makeCloth(obj, o.cloth.resolution ?? params.resolution);
+      for (const a of o.anchors || []){
+        const at = Array.isArray(a) ? a : a.at, to = Array.isArray(a) ? null : a.to;
+        cl.toggleAnchor(nearestParticle(cl, at), true, to ? new THREE.Vector3(...to) : null);
+      }
+      for (const [x, y, z, m] of o.loads || []) cl.load[nearestParticle(cl, [x, y, z])] += m * cl.totalMass();
+      cl.updateInvMass();
+      cl.rebuildWeights();
+      cl.updateView(1);
+    }
+  }
+  markObjectList();
+  refreshStats();
+  if (data.camera){
+    camera.position.fromArray(data.camera.position);
+    orbit.target.fromArray(data.camera.target);
+  } else frameAll();
+}
+
+function download(name, text, type = 'application/json'){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+async function loadExample(name){
+  if (!requireEdit()) return;
+  toast(`Loading ${name}…`);
+  try{
+    const url = new URL(`examples/${name}.json`, location.href);
+    const res = await fetch(url, { cache:'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    await loadScene(await res.json(), url);
+    toast(`${name.replace(/-/g, ' ')} loaded — press Hang, then Invert`);
+  }catch(err){
+    console.error(err);
+    toast(location.protocol === 'file:'
+      ? 'Examples need the page served over http (e.g. python3 -m http.server)'
+      : `Could not load example: ${err.message || err}`, true);
+  }
+}
+
+// OBJ of the current form, as displayed (inverted if the view is inverted)
+function exportOBJ(){
+  const cloths = clothList();
+  if (!cloths.length) return toast('Nothing hung yet', true);
+  const lines = ['# Funicular Form — hanging-lab export', `# ${inverted ? 'inverted (compression) form' : 'hanging (tension) form'}`];
+  let base = 1;
+  hangGroup.updateMatrixWorld(true);
+  for (const c of cloths){
+    lines.push(`o ${c.obj.name.replace(/\s+/g, '_')}`);
+    const m = c.group.matrixWorld;
+    for (let i = 0; i < c.n; i++){
+      _v.set(c.x[3*i], c.x[3*i+1], c.x[3*i+2]).applyMatrix4(m);
+      lines.push(`v ${_v.x.toFixed(5)} ${_v.y.toFixed(5)} ${_v.z.toFixed(5)}`);
+    }
+    if (c.tris){
+      // flipping one axis mirrors the surface; keep the faces facing outward
+      for (let t = 0; t < c.tris.length; t += 3){
+        const [a, b, d] = inverted ? [c.tris[t], c.tris[t+2], c.tris[t+1]] : [c.tris[t], c.tris[t+1], c.tris[t+2]];
+        lines.push(`f ${a+base} ${b+base} ${d+base}`);
+      }
+    } else for (let e = 0; e < c.nEdges; e++) lines.push(`l ${c.edges[2*e]+base} ${c.edges[2*e+1]+base}`);
+    base += c.n;
+  }
+  download(inverted ? 'funicular-form-inverted.obj' : 'funicular-form-hanging.obj', lines.join('\n') + '\n', 'text/plain');
+}
+
+function frameAll(){
+  const box = new THREE.Box3();
+  hangGroup.updateMatrixWorld(true);
+  objects.forEach(o => {
+    if (o.cloth){
+      const m = o.cloth.group.matrixWorld;
+      for (let i = 0; i < o.cloth.n; i += Math.max(1, Math.floor(o.cloth.n / 400)))
+        box.expandByPoint(_v.set(o.cloth.x[3*i], o.cloth.x[3*i+1], o.cloth.x[3*i+2]).applyMatrix4(m));
+    } else box.expandByObject(o.container);
+  });
+  if (box.isEmpty()) return;
+  box.expandByPoint(_v.set(box.min.x, 0, box.min.z));    // keep the ground in view
+  const c = box.getCenter(new THREE.Vector3());
+  const r = box.getSize(new THREE.Vector3()).length() / 2;
+  const fov = Math.min(camera.fov, THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect)));
+  const dist = r / Math.sin(THREE.MathUtils.degToRad(fov / 2)) * 1.1;
+  const dir = camera.position.clone().sub(orbit.target).normalize();
+  orbit.target.copy(c);
+  camera.position.copy(c).addScaledVector(dir, Math.max(dist, 3));
+}
+
+/* ============================== UI wiring ============================== */
+
+let objectListQueued = false;
+function markObjectList(){
+  if (objectListQueued) return;
+  objectListQueued = true;
+  queueMicrotask(refreshObjectList);
+}
+function refreshObjectList(){
+  objectListQueued = false;
+  const frag = document.createDocumentFragment();
+  objects.forEach(obj => {
+    const item = document.createElement('div');
+    item.className = 'obj-item' + (obj === selectedObj ? ' selected' : '');
+    item.dataset.id = obj.id;
+    item.innerHTML = '<span class="marker"></span>';
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = obj.name;
+    const tag = document.createElement('span');
+    tag.className = 'tag' + (obj.cloth ? ' cloth' : '');
+    tag.textContent = obj.cloth ? (obj.cloth.tris ? 'cloth' : 'chain') : 'model';
+    item.append(name, tag);
+    item.insertAdjacentHTML('beforeend', '<button class="mini del" title="delete">×</button>');
+    frag.append(item);
+  });
+  $('objlist').replaceChildren(frag);
+}
+
+$('objlist').addEventListener('click', e => {
+  const item = e.target.closest('.obj-item');
+  const obj = item && objects.get(+item.dataset.id);
+  if (!obj) return;
+  if (e.target.classList.contains('del')){ if (requireEdit()) removeObject(obj.id); return; }
+  selectObject(obj);
+});
+
+function setGizmoMode(m){
+  gizmoMode = m;
+  if (!selectedAnchor) gizmo.setMode(m);
+  $('giz-t').classList.toggle('active', m === 'translate');
+  $('giz-r').classList.toggle('active', m === 'rotate');
+  $('giz-s').classList.toggle('active', m === 'scale');
+}
+$('giz-t').onclick = () => setGizmoMode('translate');
+$('giz-r').onclick = () => setGizmoMode('rotate');
+$('giz-s').onclick = () => setGizmoMode('scale');
+
+document.querySelectorAll('[data-prim]').forEach(b => b.onclick = () => {
+  if (!requireEdit()) return;
+  setInverted(false);
+  const o = createPrimitive(b.dataset.prim);
+  selectObject(o);
+  frameAll();
+});
+$('btn-load').onclick = () => { if (requireEdit()) $('model-input').click(); };
+$('model-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f) loadModelFile(f);
+});
+
+$('btn-cloth').onclick = () => {
+  if (!requireEdit()) return;
+  const todo = selectedObj && !selectedObj.cloth ? [selectedObj] : [...objects.values()].filter(o => !o.cloth);
+  if (!todo.length) return toast('Everything is cloth already', true);
+  try{
+    for (const o of todo) makeCloth(o, params.resolution);
+  }catch(err){ console.error(err); return toast(`Could not make cloth: ${err.message}`, true); }
+  deselect();
+  markObjectList();
+  refreshStats();
+  setTool(TOOLS.PIN);
+  toast(`${todo.length > 1 ? todo.length + ' models are' : todo[0].name + ' is'} cloth now — 03 pin anchor points`);
+};
+$('btn-uncloth').onclick = () => {
+  if (!requireEdit()) return;
+  setInverted(false);
+  const todo = selectedObj?.cloth ? [selectedObj] : [...objects.values()].filter(o => o.cloth);
+  todo.forEach(uncloth);
+  markObjectList();
+  refreshStats();
+};
+
+function setTool(t){
+  tool = t;
+  for (const [id, tt] of [['tool-pin', TOOLS.PIN], ['tool-weight', TOOLS.WEIGHT], ['tool-move', TOOLS.MOVE]])
+    $(id).classList.toggle('active', tt === t);
+  if (t !== TOOLS.MOVE) selectAnchor(null);
+  updateHint();
+}
+$('tool-pin').onclick = () => setTool(TOOLS.PIN);
+$('tool-weight').onclick = () => setTool(TOOLS.WEIGHT);
+$('tool-move').onclick = () => setTool(TOOLS.MOVE);
+$('auto-corners').onclick = () => autoAnchors('corners');
+$('auto-boundary').onclick = () => autoAnchors('boundary');
+$('auto-top').onclick = () => autoAnchors('top');
+$('auto-clear').onclick = () => autoAnchors('clear');
+$('auto-gather').onclick = () => gatherAnchors(-0.1);
+$('auto-spread').onclick = () => gatherAnchors(0.1);
+
+const playBtn = $('btn-play');
+playBtn.onclick = () => {
+  if (simState === SIM.EDIT) startHanging();
+  else if (simState === SIM.RUNNING){ simState = SIM.PAUSED; setPlayLabel('Resume'); updateHint(); }
+  else { simState = SIM.RUNNING; setPlayLabel('Pause'); updateHint(); }
+};
+$('stage-play').onclick = () => playBtn.click();
+$('stage-reset').onclick = () => $('btn-reset').click();
+$('btn-reset').onclick = () => { if (simState !== SIM.EDIT){ stopHanging(true); clothList().forEach(c => c.updateView(1)); } };
+$('p-invert').addEventListener('change', e => setInverted(e.target.checked));
+
+function setDisplay(d){
+  display = d;
+  document.querySelectorAll('[data-display]').forEach(b => b.classList.toggle('active', b.dataset.display === d));
+  clothList().forEach(c => c.applyDisplay());
+}
+document.querySelectorAll('[data-display]').forEach(b => b.onclick = () => setDisplay(b.dataset.display));
+
+document.querySelectorAll('[data-preset]').forEach(b => b.onclick = () => buildPreset(b.dataset.preset));
+document.querySelectorAll('[data-example]').forEach(b => b.onclick = () => loadExample(b.dataset.example));
+
+$('btn-export').onclick = exportOBJ;
+$('btn-save').onclick = () => {
+  if (!objects.size) return toast('Nothing to save yet', true);
+  download('hanging-scene.json', JSON.stringify(serializeScene(), null, 1));
+};
+$('btn-open').onclick = () => { if (requireEdit()) $('scene-input').click(); };
+$('scene-input').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try{ await loadScene(JSON.parse(await f.text())); toast(`Opened ${f.name}`); }
+  catch(err){ console.error(err); toast(`Could not open scene: ${err.message || err}`, true); }
+});
+$('btn-frame').onclick = frameAll;
+$('btn-clear').onclick = () => { clearScene(); toast('Scene cleared'); };
+
+const sliders = [
+  ['p-res',     'o-res',     'resolution', v => v.toFixed(0)],
+  ['p-load',    'o-load',    'load',       v => v.toFixed(0) + '%'],
+  ['p-grav',    'o-grav',    'gravity',    v => v.toFixed(1)],
+  ['p-stretch', 'o-stretch', 'stretch',    v => v.toFixed(2)],
+  ['p-bend',    'o-bend',    'bending',    v => v.toFixed(2)],
+  ['p-damp',    'o-damp',    'damping',    v => v.toFixed(2)],
+  ['p-sub',     'o-sub',     'substeps',   v => v.toFixed(0)],
+];
+for (const [id, outId, key, fmt] of sliders){
+  const el = $(id), out = $(outId);
+  el.addEventListener('input', () => { params[key] = parseFloat(el.value); out.textContent = fmt(params[key]); });
+}
+function syncSliders(){
+  for (const [id, outId, key, fmt] of sliders){ $(id).value = params[key]; $(outId).textContent = fmt(params[key]); }
+}
+
+$('btn-sheet').onclick = () => {
+  const collapsed = document.body.classList.toggle('sheet-collapsed');
+  $('btn-sheet').textContent = collapsed ? 'Show' : 'Hide';
+};
+
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 'g') setGizmoMode('translate');
+  else if (k === 'r') setGizmoMode('rotate');
+  else if (k === 's') setGizmoMode('scale');
+  else if (k === 'p') setTool(TOOLS.PIN);
+  else if (k === 'w') setTool(TOOLS.WEIGHT);
+  else if (k === 'm') setTool(TOOLS.MOVE);
+  else if (k === 'i' && clothList().length) setInverted(!inverted);
+  else if (k === 'f') frameAll();
+  else if (k === ' ' && e.target.tagName !== 'BUTTON'){ e.preventDefault(); playBtn.click(); }
+  else if (k === 'escape'){ selectAnchor(null); deselect(); }
+  else if ((k === 'delete' || k === 'backspace') && selectedObj && simState === SIM.EDIT) removeObject(selectedObj.id);
+});
+
+new ResizeObserver(resize).observe(wrap);
+
+/* ============================== main loop ============================== */
+
+function animate(now){
+  requestAnimationFrame(animate);
+  orbit.update();
+  if (simState === SIM.RUNNING){
+    stepAll(1);
+    updateSimStats(now);
+  }
+  renderFrame();
+}
+
+function renderFrame(){
+  const cloths = clothList();
+  if (simState !== SIM.EDIT){
+    let m = 0;
+    for (const c of cloths) m = Math.max(m, c.maxForce());
+    tensionScale = Math.max(1e-6, tensionScale * 0.97, m);   // eases down, jumps up
+  }
+  for (const c of cloths) c.updateView(tensionScale);
+  if (selBox) selBox.update();
+  renderer.render(scene, camera);
+}
+
+// advance the simulation synchronously by `seconds` (starts hanging if needed)
+function simulateFor(seconds){
+  if (simState === SIM.EDIT) startHanging();
+  stepAll(Math.round(seconds * 60));
+  statsTimer = 0;
+  updateSimStats(performance.now());
+  renderFrame();
+}
+
+// console access for scripting, e.g. hanging.buildPreset('guell'); hanging.simulateFor(5)
+window.hanging = { scene, camera, renderer, orbit, objects, params, PRESETS, buildPreset, loadScene, serializeScene,
+  clearScene, simulateFor, setInverted, exportOBJ, makeCloth, autoAnchors };
+
+resize();
+setPlayLabel('Hang');
+syncSliders();
+refreshStats();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
