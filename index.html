@@ -63,6 +63,8 @@
   .row > *{flex:1;}
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
   .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px;}
+  .grid4{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;}
+  #ui .grid4 button{padding:11px 2px; letter-spacing:.06em;}
   .mt{margin-top:10px;}
 
   #ui button{
@@ -226,12 +228,14 @@
         <button class="chip" data-preset="dome">Dome — disc hung from its rim</button>
         <button class="chip" data-preset="net">Hanging net — square chain grid</button>
         <button class="chip" data-preset="bag">Bag — sphere hung from one point</button>
+        <button class="chip" data-preset="tied">Tied sheets — two cloths joined by strings</button>
       </div>
       <h3>Example scenes (own models)</h3>
       <div class="chips">
         <button class="chip" data-example="hex-shell">Hexagon shell (OBJ)</button>
         <button class="chip" data-example="star-canopy">Star canopy (FBX)</button>
         <button class="chip" data-example="ring-band">Ring band (OBJ)</button>
+        <button class="chip" data-example="plan-web">Plan web — 2D lines (DXF)</button>
       </div>
     </div>
 
@@ -239,15 +243,16 @@
       <h2><span class="num">01</span> Import</h2>
       <div class="grid2">
         <button id="btn-load" title="FBX, OBJ, GLB/GLTF or STL">Load model…</button>
-        <button data-prim="chain">Chain</button>
+        <button id="btn-lines" title="2D/3D lines from a DWG or DXF drawing — they become a hanging chain network">Load lines…</button>
       </div>
-      <div class="grid3 mt">
+      <div class="grid4 mt">
+        <button data-prim="chain">Chain</button>
+        <button data-prim="net">Net</button>
         <button data-prim="sheet">Sheet</button>
         <button data-prim="disc">Disc</button>
         <button data-prim="sphere">Sphere</button>
         <button data-prim="torus">Torus</button>
         <button data-prim="tube">Tube</button>
-        <button data-prim="net">Net</button>
       </div>
       <div class="tabs">
         <button id="giz-t" class="tab active" title="key: G">Move</button>
@@ -265,18 +270,24 @@
         <input type="range" id="p-res" min="8" max="70" step="1" value="28">
         <output id="o-res">28</output>
       </div>
+      <div class="slider-row">
+        <label for="p-slack" title="extra length for chains, nets and imported lines, so they can sag">Slack</label>
+        <input type="range" id="p-slack" min="100" max="160" step="1" value="110">
+        <output id="o-slack">110%</output>
+      </div>
       <div class="grid2">
         <button id="btn-cloth" class="primary">Make cloth</button>
         <button id="btn-uncloth">Back to model</button>
       </div>
-      <p class="note">Re-meshes the selected model (or every model) into particles and links. Resolution = links across the longest side.</p>
+      <p class="note">Re-meshes the selected model (or every model) into particles and links. Resolution = links across the longest side. Slack lengthens chains, nets and imported lines so they sag.</p>
     </div>
 
     <div class="section locked" id="step3">
       <h2><span class="num">03</span> Anchors</h2>
-      <div class="grid3">
+      <div class="grid2">
         <button id="tool-pin" class="active" title="key: P">Pin</button>
         <button id="tool-weight" title="key: W">Weight</button>
+        <button id="tool-string" title="key: T — tie two particles together">String</button>
         <button id="tool-move" title="key: M">Move</button>
       </div>
       <div class="sliders">
@@ -285,17 +296,22 @@
           <input type="range" id="p-load" min="1" max="50" step="1" value="10">
           <output id="o-load">10%</output>
         </div>
+        <div class="slider-row">
+          <label for="p-strlen" title="length of a new string, relative to the gap it spans">String</label>
+          <input type="range" id="p-strlen" min="50" max="200" step="5" value="120">
+          <output id="o-strlen">120%</output>
+        </div>
       </div>
       <h3>Auto</h3>
       <div class="grid2">
         <button id="auto-corners">Corners</button>
         <button id="auto-boundary">Boundary</button>
         <button id="auto-top">Highest</button>
-        <button id="auto-clear">Clear</button>
+        <button id="auto-clear" title="remove all anchors and strings">Clear</button>
         <button id="auto-gather" title="move all anchors 10% toward their centre — gives cloth slack to sag">Gather</button>
         <button id="auto-spread" title="move all anchors 10% away from their centre">Spread</button>
       </div>
-      <p class="note">Click a particle to pin it. Weights hang sachets from the net, as in Gaudí's model. Move drags an anchor — also while hanging.</p>
+      <p class="note">Click a particle to pin it. Weights hang sachets from the net, as in Gaudí's model. String hangs a chain wire between two particles — also across objects; above 100 % it sags, below it pulls them together. Move drags an anchor — also while hanging.</p>
     </div>
 
     <div class="section locked" id="step4">
@@ -346,6 +362,7 @@
     <div class="section">
       <h2>Scene</h2>
       <div class="grid2">
+        <button id="btn-dxf" class="primary" title="3D DXF: chains and strings as 3D polylines, cloth as mesh — for Rhino, AutoCAD, Blender…">Export DXF</button>
         <button id="btn-export">Export OBJ</button>
         <button id="btn-save">Save scene</button>
         <button id="btn-open">Open scene…</button>
@@ -358,6 +375,7 @@
 </div>
 
 <input type="file" id="model-input" accept=".fbx,.obj,.glb,.gltf,.stl" hidden>
+<input type="file" id="lines-input" accept=".dwg,.dxf" hidden>
 <input type="file" id="scene-input" accept=".json,application/json" hidden>
 
 <script type="module">
@@ -371,11 +389,12 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { LineSegments2 } from 'three/addons/lines/LineSegments2.js';
 import { LineSegmentsGeometry } from 'three/addons/lines/LineSegmentsGeometry.js';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { NURBSCurve } from 'three/addons/curves/NURBSCurve.js';
 
 /* ============================== state ============================== */
 
 const SIM = { EDIT:0, RUNNING:1, PAUSED:2 };
-const TOOLS = { PIN:'pin', WEIGHT:'weight', MOVE:'move' };
+const TOOLS = { PIN:'pin', WEIGHT:'weight', STRING:'string', MOVE:'move' };
 const HANG_HEIGHT = 3.6;          // new models are placed with their centre here
 const MODEL_SIZE = 3;             // imported models are scaled to this largest dimension
 const MAX_TRIS = 24000;
@@ -391,7 +410,7 @@ let selectedAnchor = null;        // {cloth, i}
 
 const params = {
   gravity: 9.8, stretch: 0.1, bending: 0.2, damping: 1, substeps: 20,
-  resolution: 28, load: 10,
+  resolution: 28, slack: 110, load: 10, stringLength: 120,
 };
 
 /* ============================== scene ============================== */
@@ -480,6 +499,7 @@ function resize(){
   camera.updateProjectionMatrix();
   renderer.setSize(w, h);
   lineMat.resolution.set(w, h);
+  stringMat.resolution.set(w, h);
 }
 
 /* ============================== helpers ============================== */
@@ -507,10 +527,13 @@ function updateHint(){
   let h;
   if (inverted) h = '<b>Inverted</b> — the hanging form turned upside down: every link in tension becomes a line of pure compression · press <b>I</b> to flip back';
   else if (simState !== SIM.EDIT) h = '<b>Hanging</b> — <b>Move</b> anchors to reshape it live · <b>I</b> inverts · Reset returns to the start';
-  else if (!any) h = '<b>01 Import</b> — load a model (FBX, OBJ, GLB, STL), add a primitive, or start from a preset';
+  else if (!any) h = '<b>01 Import</b> — load a model (FBX, OBJ, GLB, STL), lines from a drawing (DWG, DXF), a primitive, or start from a preset';
   else if (!clothed) h = '<b>02 Cloth</b> — position the model, then press <b>Make cloth</b> · Keys: <b>G</b> move · <b>R</b> rotate · <b>S</b> scale';
   else if (tool === TOOLS.PIN) h = '<b>03 Anchors</b> — click particles to pin them, or use the Auto buttons · then <b>Hang</b> (Space)';
-  else if (tool === TOOLS.WEIGHT) h = '<b>Weights</b> — click a particle to hang a sachet from it · Shift-click removes';
+  else if (tool === TOOLS.WEIGHT) h = '<b>Weights</b> — click a particle, on a cloth or a string, to hang a sachet from it · Shift-click removes';
+  else if (tool === TOOLS.STRING) h = pendingString
+    ? '<b>String</b> — now click the <b>second</b> particle (Esc cancels)'
+    : '<b>String</b> — click two particles to hang a wire between them — on cloths or on other strings · Shift-click a string to cut it';
   else h = '<b>Move</b> — click an anchor, drag the gizmo';
   el.innerHTML = h;
 }
@@ -539,7 +562,8 @@ function updateSteps(){
 function refreshStats(){
   let np = 0, nl = 0, na = 0;
   clothList().forEach(c => { np += c.n; nl += c.nEdges; na += c.anchors.size; });
-  $('stats').textContent = `${objects.size} objects · ${np} particles · ${nl} links · ${na} anchors`;
+  $('stats').textContent = `${objects.size} objects · ${np} particles · ${nl} links · ${na} anchors` +
+    (strings.length ? ` · ${strings.length} strings` : '');
   updateSteps();
 }
 
@@ -812,7 +836,10 @@ class Cloth {
     this.anchors.forEach(a => a.target.copy(a.home));
   }
 
-  step(dt){
+  // one substep is predict → solve (every cloth, then the strings between them) → finish
+  step(dt){ this.predict(dt); this.solve(dt); this.finish(dt); }
+
+  predict(dt){
     const { x, p, v, w, n } = this;
     const g = params.gravity, damp = Math.max(0, 1 - params.damping * dt);
     for (let i = 0; i < n; i++){
@@ -831,7 +858,10 @@ class Cloth {
       const s = d > maxMove ? maxMove / d : 1;
       x[k] += dx * s; x[k+1] += dy * s; x[k+2] += dz * s;
     });
+  }
 
+  solve(dt){
+    const { x, w } = this;
     // links: tension only, compliance = L / EA
     const E = this.edges, R = this.edgeRest, F = this.edgeForce;
     const invEA = 1 / stretchEA(), idt2 = 1 / (dt * dt);
@@ -871,6 +901,10 @@ class Cloth {
       }
     }
 
+  }
+
+  finish(dt){
+    const { x, p, v, n } = this;
     // ground
     for (let i = 0; i < n; i++){
       const k = 3*i;
@@ -960,7 +994,7 @@ function meshCloth(obj, resolution){
 
 // net source (nodes + links with slack) -> chain cloth. Each link is split into
 // pieces of about h; the rest length is the straight distance times its slack.
-function netCloth(obj, resolution){
+function netCloth(obj, resolution, slackScale = 1){
   obj.container.updateMatrixWorld(true);
   const net = obj.source.net;
   const nodes = net.nodes.map(p => new THREE.Vector3(...p).applyMatrix4(obj.container.matrixWorld));
@@ -972,7 +1006,7 @@ function netCloth(obj, resolution){
   nodes.forEach(v => P.push(v.x, v.y, v.z));
   for (const [i, j, slack = 1] of net.edges){
     const a = nodes[i], b = nodes[j];
-    const L = a.distanceTo(b) * slack;
+    const L = a.distanceTo(b) * slack * slackScale;
     const k = Math.max(1, Math.round(L / h));
     let prev = i;
     for (let s = 1; s <= k; s++){
@@ -1036,6 +1070,15 @@ function netObject(net){
   const root = new THREE.Group();
   root.add(lines);
   // nodes as small ink cubes so the net can be seen and picked before it is cloth
+  // (large imported drawings get a pick-able hull instead)
+  if (net.nodes.length > 1500){
+    const bb = new THREE.Box3().setFromArray(net.nodes.flat());
+    const hull = new THREE.Mesh(new THREE.BoxGeometry(...bb.getSize(new THREE.Vector3()).toArray().map(v => Math.max(v, 0.05))),
+      new THREE.MeshBasicMaterial({ visible: false }));
+    hull.position.copy(bb.getCenter(new THREE.Vector3()));
+    root.add(hull);
+    return root;
+  }
   for (const n of net.nodes){
     const m = new THREE.Mesh(markerGeo, modelMat);
     m.position.fromArray(n);
@@ -1104,10 +1147,322 @@ async function loadModelFile(file){
   }
 }
 
-function makeCloth(obj, resolution = params.resolution){
+/* ============================== lines: DWG / DXF ============================== */
+// A 2D drawing of lines becomes a chain network, the way Gaudí and Frei Otto drew a
+// plan and hung it: every line, polyline, arc, circle, ellipse and spline is sampled
+// into nodes, shared end points are welded, and the drawing's XY plane is laid out
+// horizontally (Z in the drawing becomes height). DXF is parsed here; DWG goes
+// through libredwg (WebAssembly, ~10 MB, fetched the first time a DWG is opened).
+
+const LIBREDWG = 'https://cdn.jsdelivr.net/npm/@mlightcad/libredwg-web@0.7.14';
+let libredwg = null;
+
+async function readDWG(buffer){
+  if (!libredwg){
+    toast('Loading the DWG reader (one-time, ~10 MB)…');
+    const mod = await import(`${LIBREDWG}/dist/libredwg-web.js`);
+    libredwg = { mod, lib: await mod.LibreDwg.create(`${LIBREDWG}/wasm`) };
+  }
+  const { mod, lib } = libredwg;
+  const dwg = lib.dwg_read_data(buffer, mod.Dwg_File_Type.DWG);
+  if (!dwg) throw new Error('could not read the DWG');
+  const db = lib.convert(dwg);
+  lib.dwg_free(dwg);
+  return db.entities.map(e => e.type === 'LWPOLYLINE' ? { ...e, closed: !!(e.flag & 512) || !!(e.flag & 1) }
+    : (e.type === 'POLYLINE2D' || e.type === 'POLYLINE3D') ? { ...e, closed: !!(e.flag & 1) } : e);
+}
+
+// minimal ASCII DXF reader for the entities a line drawing uses
+function readDXF(text){
+  const lines = text.split(/\r?\n/);
+  const pairs = [];
+  for (let i = 0; i + 1 < lines.length; i += 2) pairs.push([parseInt(lines[i], 10), lines[i+1].trim()]);
+  const out = [];
+  let k = 0;
+  while (k < pairs.length && !(pairs[k][0] === 2 && pairs[k][1] === 'ENTITIES')) k++;
+  let poly = null;
+  while (k < pairs.length){
+    const [code, val] = pairs[k];
+    if (code === 0 && val === 'ENDSEC') break;
+    if (code !== 0){ k++; continue; }
+    const type = val, g = [];
+    for (k++; k < pairs.length && pairs[k][0] !== 0; k++) g.push(pairs[k]);
+    const num = c => { const p = g.find(q => q[0] === c); return p ? parseFloat(p[1]) : 0; };
+    const all = c => g.filter(q => q[0] === c).map(q => parseFloat(q[1]));
+    const pt = (cx, cy, cz) => ({ x: num(cx), y: num(cy), z: num(cz) });
+    const deg = Math.PI / 180;
+    if (type === 'LINE') out.push({ type, startPoint: pt(10, 20, 30), endPoint: pt(11, 21, 31) });
+    else if (type === 'LWPOLYLINE'){
+      const verts = [];
+      for (const [c, v] of g){
+        if (c === 10) verts.push({ x: parseFloat(v), y: 0, bulge: 0 });
+        else if (c === 20 && verts.length) verts[verts.length - 1].y = parseFloat(v);
+        else if (c === 42 && verts.length) verts[verts.length - 1].bulge = parseFloat(v);
+      }
+      out.push({ type, vertices: verts, elevation: num(38), closed: !!(num(70) & 1) });
+    }
+    else if (type === 'POLYLINE'){ poly = { type: (num(70) & 8) ? 'POLYLINE3D' : 'POLYLINE2D', vertices: [], closed: !!(num(70) & 1) }; }
+    else if (type === 'VERTEX' && poly){ if (!(num(70) & 16)) poly.vertices.push({ ...pt(10, 20, 30), bulge: num(42) }); }
+    else if (type === 'SEQEND' && poly){ out.push(poly); poly = null; }
+    else if (type === 'ARC') out.push({ type, center: pt(10, 20, 30), radius: num(40), startAngle: num(50) * deg, endAngle: num(51) * deg });
+    else if (type === 'CIRCLE') out.push({ type, center: pt(10, 20, 30), radius: num(40) });
+    else if (type === 'ELLIPSE') out.push({ type, center: pt(10, 20, 30), majorAxisEndPoint: pt(11, 21, 31), axisRatio: num(40),
+      startAngle: num(41), endAngle: g.some(q => q[0] === 42) ? num(42) : 2 * Math.PI });
+    else if (type === 'SPLINE'){
+      const cx = all(10), cy = all(20), cz = all(30), fx = all(11), fy = all(21), fz = all(31);
+      out.push({ type, degree: num(71), knots: all(40), weights: all(41).length ? all(41) : undefined,
+        controlPoints: cx.map((x, i) => ({ x, y: cy[i] ?? 0, z: cz[i] ?? 0 })),
+        fitPoints: fx.map((x, i) => ({ x, y: fy[i] ?? 0, z: fz[i] ?? 0 })) });
+    }
+  }
+  return out;
+}
+
+// entities -> polylines of [x, y, z] in drawing coordinates
+function entitiesToPolylines(entities){
+  const polys = [], skipped = new Map();
+  const arcPts = (c, r, a0, a1, z = c.z ?? 0) => {
+    while (a1 <= a0) a1 += 2 * Math.PI;
+    const n = Math.max(2, Math.ceil((a1 - a0) / (Math.PI / 24)));
+    return Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [c.x + r * Math.cos(a), c.y + r * Math.sin(a), z]; });
+  };
+  // a polyline segment with a bulge is an arc
+  const bulgeRun = (verts, closed, z0 = 0) => {
+    const pts = [], n = verts.length, segs = closed ? n : n - 1;
+    for (let i = 0; i < segs; i++){
+      const p = verts[i], q = verts[(i + 1) % n], pz = p.z ?? z0, qz = q.z ?? z0;
+      if (!pts.length) pts.push([p.x, p.y, pz]);
+      if (!p.bulge){ pts.push([q.x, q.y, qz]); continue; }
+      const theta = 4 * Math.atan(p.bulge), dx = q.x - p.x, dy = q.y - p.y, chord = Math.hypot(dx, dy);
+      const r = chord / (2 * Math.sin(Math.abs(theta) / 2));
+      const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, h = r * Math.cos(theta / 2) * Math.sign(theta);
+      const cx = mx - h * dy / chord, cy = my + h * dx / chord;
+      const a0 = Math.atan2(p.y - cy, p.x - cx);
+      const steps = Math.max(2, Math.ceil(Math.abs(theta) / (Math.PI / 24)));
+      for (let s = 1; s <= steps; s++){
+        const a = a0 + theta * s / steps;
+        pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a), pz + (qz - pz) * s / steps]);
+      }
+    }
+    return pts;
+  };
+  for (const e of entities){
+    if (e.type === 'LINE') polys.push([[e.startPoint.x, e.startPoint.y, e.startPoint.z ?? 0], [e.endPoint.x, e.endPoint.y, e.endPoint.z ?? 0]]);
+    else if (e.type === 'LWPOLYLINE' || e.type === 'POLYLINE2D' || e.type === 'POLYLINE3D'){
+      if (e.vertices?.length > 1) polys.push(bulgeRun(e.vertices, e.closed, e.elevation ?? 0));
+    }
+    else if (e.type === 'ARC') polys.push(arcPts(e.center, e.radius, e.startAngle, e.endAngle));
+    else if (e.type === 'CIRCLE') polys.push(arcPts(e.center, e.radius, 0, 2 * Math.PI));
+    else if (e.type === 'ELLIPSE'){
+      const c = e.center, M = e.majorAxisEndPoint, ratio = e.axisRatio || 1;
+      const mx = M.x, my = M.y, nx = -my * ratio, ny = mx * ratio;
+      let a0 = e.startAngle ?? 0, a1 = e.endAngle ?? 2 * Math.PI;
+      while (a1 <= a0) a1 += 2 * Math.PI;
+      const n = Math.max(8, Math.ceil((a1 - a0) / (Math.PI / 24)));
+      polys.push(Array.from({ length: n + 1 }, (_, i) => { const t = a0 + (a1 - a0) * i / n;
+        return [c.x + mx * Math.cos(t) + nx * Math.sin(t), c.y + my * Math.cos(t) + ny * Math.sin(t), c.z ?? 0]; }));
+    }
+    else if (e.type === 'SPLINE'){
+      const cp = e.controlPoints || [], fp = e.fitPoints || [];
+      if (cp.length >= 2 && e.knots?.length === cp.length + (e.degree || 3) + 1){
+        const curve = new NURBSCurve(e.degree || 3, e.knots,
+          cp.map((p, i) => new THREE.Vector4(p.x, p.y, p.z ?? 0, e.weights?.[i] ?? 1)));
+        polys.push(curve.getPoints(Math.max(16, cp.length * 6)).map(v => [v.x, v.y, v.z]));
+      } else if (fp.length >= 2) polys.push(fp.map(p => [p.x, p.y, p.z ?? 0]));
+      else if (cp.length >= 2) polys.push(cp.map(p => [p.x, p.y, p.z ?? 0]));
+    }
+    else skipped.set(e.type, (skipped.get(e.type) || 0) + 1);
+  }
+  return { polys, skipped };
+}
+
+// Split segments wherever they cross or touch in plan, so a drawn net becomes knotted
+// where its lines meet — like the chains of a hanging model. A uniform grid keeps
+// this near-linear for large drawings.
+function splitAtCrossings(polys, tol){
+  const segs = [];
+  for (const poly of polys) for (let k = 1; k < poly.length; k++) segs.push([poly[k-1], poly[k]]);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [p, q] of segs){ minX = Math.min(minX, p[0], q[0]); maxX = Math.max(maxX, p[0], q[0]); minY = Math.min(minY, p[1], q[1]); maxY = Math.max(maxY, p[1], q[1]); }
+  const G = Math.max(1, Math.ceil(Math.sqrt(segs.length))), cw = (maxX - minX) / G || 1, ch = (maxY - minY) / G || 1;
+  const cells = new Map(), range = new Int32Array(segs.length * 2);
+  segs.forEach(([p, q], i) => {
+    const x0 = Math.floor((Math.min(p[0], q[0]) - minX) / cw), x1 = Math.floor((Math.max(p[0], q[0]) - minX) / cw);
+    const y0 = Math.floor((Math.min(p[1], q[1]) - minY) / ch), y1 = Math.floor((Math.max(p[1], q[1]) - minY) / ch);
+    range[2*i] = x0; range[2*i+1] = y0;
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++){
+      const key = x * 100003 + y;
+      (cells.get(key) || cells.set(key, []).get(key)).push(i);
+    }
+  });
+  const cuts = segs.map(() => [0, 1]);
+  for (const [key, list] of cells){
+    const cx = Math.floor(key / 100003), cy = key - cx * 100003;
+    for (let u = 0; u < list.length; u++) for (let v = u + 1; v < list.length; v++){
+    const i = list[u], j = list[v];
+    // a pair sharing several cells is tested once: in the first cell both are in
+    if (Math.max(range[2*i], range[2*j]) !== cx || Math.max(range[2*i+1], range[2*j+1]) !== cy) continue;
+    const [p, q] = segs[i], [r, t] = segs[j];
+    const dx1 = q[0] - p[0], dy1 = q[1] - p[1], dx2 = t[0] - r[0], dy2 = t[1] - r[1];
+    const den = dx1 * dy2 - dy1 * dx2;
+    if (Math.abs(den) < 1e-12) continue;                        // parallel
+    const a = ((r[0] - p[0]) * dy2 - (r[1] - p[1]) * dx2) / den;
+    const b = ((r[0] - p[0]) * dy1 - (r[1] - p[1]) * dx1) / den;
+    const ea = tol / (Math.hypot(dx1, dy1) || 1), eb = tol / (Math.hypot(dx2, dy2) || 1);
+    if (a < -ea || a > 1 + ea || b < -eb || b > 1 + eb) continue;
+    if (a > ea && a < 1 - ea) cuts[i].push(a);
+    if (b > eb && b < 1 - eb) cuts[j].push(b);
+    }
+  }
+  const out = [];
+  segs.forEach(([p, q], i) => {
+    const ts = [...new Set(cuts[i])].sort((x, y) => x - y);
+    const at = t => p.map((v, k) => v + (q[k] - v) * t);
+    for (let k = 1; k < ts.length; k++) out.push([at(ts[k-1]), at(ts[k])]);
+  });
+  return out;
+}
+
+// polylines -> welded net, laid out horizontally and scaled to `size` metres
+function polylinesToNet(polys, size){
+  // bounds by loop — spreading a big drawing into Math.min would overflow the stack
+  const bounds = list => {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const poly of list) for (const p of poly) for (let i = 0; i < 3; i++){ lo[i] = Math.min(lo[i], p[i]); hi[i] = Math.max(hi[i], p[i]); }
+    return { lo, hi };
+  };
+  if (!polys.some(p => p.length > 1)) throw new Error('no lines found');
+  const b0 = bounds(polys);
+  polys = splitAtCrossings(polys, (Math.max(b0.hi[0] - b0.lo[0], b0.hi[1] - b0.lo[1]) || 1) * 1e-6);
+  const { lo, hi } = bounds(polys);
+  const ext = Math.max(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]) || 1;
+  const scale = size / ext, tol = ext * 1e-5, c = lo.map((v, i) => (v + hi[i]) / 2);
+  const nodes = [], index = new Map(), edges = [], seen = new Set();
+  const node = p => {
+    const key = p.map(v => Math.round(v / tol)).join(',');
+    let i = index.get(key);
+    if (i === undefined){
+      i = nodes.length; index.set(key, i);
+      // drawing X → x, drawing Y → −z (plan view from above), drawing Z → height
+      nodes.push([+((p[0] - c[0]) * scale).toFixed(5), +((p[2] - c[2]) * scale).toFixed(5), +(-(p[1] - c[1]) * scale).toFixed(5)]);
+    }
+    return i;
+  };
+  for (const poly of polys){
+    let prev = node(poly[0]);
+    for (let k = 1; k < poly.length; k++){
+      const cur = node(poly[k]);
+      if (cur === prev) continue;
+      const key = prev < cur ? `${prev},${cur}` : `${cur},${prev}`;
+      if (!seen.has(key)){ seen.add(key); edges.push([prev, cur, 1]); }
+      prev = cur;
+    }
+  }
+  if (!edges.length) throw new Error('the lines are too short to hang');
+  return { nodes, edges, scale };
+}
+
+async function createLines(buffer, name, format, { src = null, size = MODEL_SIZE } = {}){
+  const entities = format === 'dwg' ? await readDWG(buffer) : readDXF(new TextDecoder().decode(buffer));
+  const { polys, skipped } = entitiesToPolylines(entities);
+  const { nodes, edges } = polylinesToNet(polys, size);
+  const net = { nodes, edges };
+  const source = src ? { src, format, size, net } : { net, from: `${name}.${format}` };
+  const obj = registerObject(name, source, makeContainer(netObject(net)));
+  // nodes are already centred: keep them as authored
+  obj.container.children[0].position.set(0, 0, 0);
+  obj.container.position.set(0, HANG_HEIGHT, 0);
+  obj.skipped = skipped;
+  return obj;
+}
+
+async function loadLinesFile(file){
+  if (!requireEdit()) return;
+  const format = file.name.split('.').pop().toLowerCase();
+  toast(`Reading ${file.name}…`);
+  try{
+    setInverted(false);
+    const obj = await createLines(await file.arrayBuffer(), file.name.replace(/\.[^.]+$/, ''), format);
+    selectObject(obj);
+    frameAll();
+    const sk = [...obj.skipped].map(([t, n]) => `${n} ${t}`).join(', ');
+    toast(`${obj.name}: ${obj.source.net.edges.length} segments, ${obj.source.net.nodes.length} nodes` +
+      (sk ? ` · ignored ${sk}` : '') + ' — 02 Make cloth');
+  }catch(err){
+    console.error(err);
+    toast(`Could not read ${file.name}: ${err.message || err}`, true);
+  }
+}
+
+// 3D DXF (R12 ASCII, metres, Z up): cloth as 3DFACE mesh, cloth links and chains as
+// LINE / 3D POLYLINE, strings as 3D POLYLINE, anchors as POINT — on separate layers.
+function exportDXF(){
+  const cloths = clothList();
+  if (!cloths.length) return toast('Nothing hung yet', true);
+  hangGroup.updateMatrixWorld(true);
+  const out = ['0','SECTION','2','HEADER','9','$ACADVER','1','AC1009','9','$INSUNITS','70','6','0','ENDSEC',
+    '0','SECTION','2','TABLES','0','TABLE','2','LAYER','70','5'];
+  const LAYERS = [['CLOTH', 8], ['LINKS', 5], ['CHAINS', 5], ['STRINGS', 7], ['ANCHORS', 1]];
+  for (const [name, color] of LAYERS) out.push('0','LAYER','2',name,'70','0','62',String(color),'6','CONTINUOUS');
+  out.push('0','ENDTAB','0','ENDSEC','0','SECTION','2','ENTITIES');
+  const f = v => v.toFixed(5);
+  // app is Y-up; CAD is Z-up: (x, y, z) -> (x, −z, y)
+  const xyz = (v, c = 0) => [String(10 + c), f(v.x), String(20 + c), f(-v.z), String(30 + c), f(v.y)];
+  const P = (X, i, m) => _v.set(X[3*i], X[3*i+1], X[3*i+2]).applyMatrix4(m).clone();
+  const polyline = (layer, pts) => {
+    out.push('0','POLYLINE','8',layer,'66','1','70','8','10','0','20','0','30','0');
+    for (const p of pts) out.push('0','VERTEX','8',layer,...xyz(p),'70','32');
+    out.push('0','SEQEND','8',layer);
+  };
+  let nFaces = 0, nLines = 0, nPolys = 0;
+  for (const c of cloths){
+    const m = c.group.matrixWorld;
+    if (c.tris){
+      for (let t = 0; t < c.tris.length; t += 3){
+        const a = P(c.x, c.tris[t], m), b = P(c.x, c.tris[t+1], m), d = P(c.x, c.tris[t+2], m);
+        out.push('0','3DFACE','8','CLOTH',...xyz(a,0),...xyz(b,1),...xyz(d,2),...xyz(d,3));
+        nFaces++;
+      }
+      for (let e = 0; e < c.nEdges; e++){
+        out.push('0','LINE','8','LINKS',...xyz(P(c.x, c.edges[2*e], m), 0),...xyz(P(c.x, c.edges[2*e+1], m), 1));
+        nLines++;
+      }
+    } else {
+      // chains: walk through particles with two links, so each chain is one polyline
+      const nb = Array.from({ length: c.n }, () => []);
+      for (let e = 0; e < c.nEdges; e++){ nb[c.edges[2*e]].push([c.edges[2*e+1], e]); nb[c.edges[2*e+1]].push([c.edges[2*e], e]); }
+      const used = new Uint8Array(c.nEdges);
+      const walk = (start, e0, next) => {
+        const pts = [P(c.x, start, m)];
+        let cur = next, e = e0;
+        used[e] = 1; pts.push(P(c.x, cur, m));
+        while (nb[cur].length === 2 && cur !== start){
+          const [n2, e2] = nb[cur][0][1] === e ? nb[cur][1] : nb[cur][0];
+          if (used[e2]) break;
+          used[e2] = 1; e = e2; cur = n2; pts.push(P(c.x, cur, m));
+        }
+        polyline('CHAINS', pts); nPolys++;
+      };
+      for (let i = 0; i < c.n; i++) if (nb[i].length !== 2) for (const [j, e] of nb[i]) if (!used[e]) walk(i, e, j);
+      for (let e = 0; e < c.nEdges; e++) if (!used[e]) walk(c.edges[2*e], e, c.edges[2*e+1]);   // closed loops
+    }
+    c.anchors.forEach((a, i) => out.push('0','POINT','8','ANCHORS',...xyz(P(c.x, i, m))));
+  }
+  for (const s of strings){
+    const pts = [];
+    for (let j = -1; j <= s.n; j++){ const r = s.linkEnd(j); pts.push(P(r.cloth.x, r.i, r.cloth.isWire ? hangGroup.matrixWorld : r.cloth.group.matrixWorld)); }
+    polyline('STRINGS', pts); nPolys++;
+  }
+  out.push('0','ENDSEC','0','EOF');
+  download(inverted ? 'funicular-form-inverted.dxf' : 'funicular-form-hanging.dxf', out.join('\n') + '\n', 'application/dxf');
+  toast(`DXF: ${nPolys} polylines, ${nLines} lines, ${nFaces} faces`);
+}
+
+function makeCloth(obj, resolution = params.resolution, slack = 1){
   if (obj.cloth) return obj.cloth;
   obj.resolution = resolution;
-  obj.cloth = obj.source.net ? netCloth(obj, resolution) : meshCloth(obj, resolution);
+  obj.slack = slack;
+  obj.cloth = obj.source.net ? netCloth(obj, resolution, slack) : meshCloth(obj, resolution);
   obj.container.visible = false;
   if (selectedObj === obj) gizmo.detach();
   if (selBox && selectedObj === obj){ scene.remove(selBox); selBox = null; }
@@ -1118,6 +1473,8 @@ function makeCloth(obj, resolution = params.resolution){
 function uncloth(obj){
   if (!obj.cloth) return;
   if (selectedAnchor?.cloth === obj.cloth) selectAnchor(null);
+  if (pendingString?.cloth === obj.cloth) setPendingString(null);
+  removeStringsOf(obj.cloth);
   obj.cloth.dispose();
   obj.cloth = null;
   obj.container.visible = true;
@@ -1212,6 +1569,17 @@ function pickParticle(clientX, clientY, radius = 14){
       if (score < bestScore){ bestScore = score; best = { cloth: c, i }; }
     }
   }
+  const m = hangGroup.matrixWorld;
+  for (const s of strings){
+    for (let i = 0; i < s.n; i++){
+      _v.set(s.x[3*i], s.x[3*i+1], s.x[3*i+2]).applyMatrix4(m).project(camera);
+      if (_v.z > 1) continue;
+      const d = Math.hypot((_v.x + 1) / 2 * r.width - x, (1 - _v.y) / 2 * r.height - y);
+      if (d > radius) continue;
+      const score = d + _v.z * 4;
+      if (score < bestScore){ bestScore = score; best = { cloth: s, i }; }
+    }
+  }
   return best;
 }
 
@@ -1245,6 +1613,7 @@ function handleClick(x, y, shift){
     const hit = pickParticle(x, y);
     if (tool === TOOLS.PIN){
       if (!hit) return;
+      if (hit.cloth.isWire){ toast('Pin works on cloth — tie a string to an anchored point instead'); return; }
       hit.cloth.toggleAnchor(hit.i);
       refreshStats();
       return;
@@ -1255,8 +1624,22 @@ function handleClick(x, y, shift){
       hit.cloth.addLoad(hit.i, m);
       return;
     }
+    if (tool === TOOLS.STRING){
+      if (!hit){ setPendingString(null); return; }
+      if (shift){
+        const n = removeStringsAt(hit.cloth, hit.i);   // on a wire: that wire, and whatever hangs from it
+        toast(n ? `${n} string${n > 1 ? 's' : ''} cut` : 'No string at this particle');
+        return;
+      }
+      if (!pendingString){ setPendingString(hit); return; }
+      const a = pendingString;
+      setPendingString(null);
+      if (sameParticle(a, hit)) return;
+      if (addString(a, hit)) toast('String tied');
+      return;
+    }
     if (tool === TOOLS.MOVE){
-      if (hit && hit.cloth.anchors.has(hit.i)) selectAnchor(hit);
+      if (hit && !hit.cloth.isWire && hit.cloth.anchors.has(hit.i)) selectAnchor(hit);
       else selectAnchor(null);
       return;
     }
@@ -1264,6 +1647,214 @@ function handleClick(x, y, shift){
   if (simState !== SIM.EDIT) return;
   const obj = pickObject(x, y);
   if (obj) selectObject(obj); else deselect();
+}
+
+/* ============================== strings ============================== */
+// A string is a hanging chain wire between two particles: a row of short links with
+// their own weight, so it sags into a catenary and pulls on what it is tied to. Its
+// own particles are particles like any other — a new string can be tied to them and
+// weights hung from them, so wires can be built into networks. Its length is the gap
+// it spans when tied, times the String slider; above 100 % it hangs slack.
+
+const strings = [];               // Wire[], in creation order (a wire only ties to older ones)
+let pendingString = null;
+const STRING_EA = 1e4;
+const STRING_LINK = 0.06;         // target link length, m
+const STRING_WEIGHT = 0.04;       // weight per metre, relative to an object's own weight of 1
+const stringMat = new LineMaterial({ linewidth: 2, vertexColors: true, worldUnits: false, side: THREE.DoubleSide });
+let stringLines = null, stringsDirty = true;
+const pendingMarker = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), new THREE.MeshBasicMaterial({ color: INK }));
+pendingMarker.visible = false;
+hangGroup.add(pendingMarker);
+const STRING_EDIT = new THREE.Color(0x222222);
+const _sa = new THREE.Vector3(), _sb = new THREE.Vector3();
+
+// a particle reference is {cloth, i}, where cloth is a Cloth or a Wire: both have x and w
+const particlePos = (r, out) => out.set(r.cloth.x[3*r.i], r.cloth.x[3*r.i+1], r.cloth.x[3*r.i+2]);
+const sameParticle = (p, q) => p.cloth === q.cloth && p.i === q.i;
+
+class Wire {
+  constructor(a, b, rest){
+    this.isWire = true;
+    this.a = { ...a }; this.b = { ...b };
+    this.rest = rest;
+    this.k = Math.min(160, Math.max(4, Math.round(rest / STRING_LINK)));
+    this.linkRest = rest / this.k;
+    this.n = this.k - 1;                       // interior particles
+    this.x = new Float32Array(3 * this.n);
+    this.p = new Float32Array(3 * this.n);
+    this.v = new Float32Array(3 * this.n);
+    this.mass = this.linkRest * STRING_WEIGHT;
+    this.load = new Float32Array(this.n);
+    this.w = new Float32Array(this.n);
+    this.force = new Float32Array(this.k);
+    this.weights = new THREE.Group();
+    hangGroup.add(this.weights);
+    this.updateInvMass();
+    this.layStraight();
+  }
+
+  totalMass(){ return 1; }                     // weights on wires are a share of a standard object
+  updateInvMass(){ for (let i = 0; i < this.n; i++) this.w[i] = 1 / (this.mass + this.load[i]); }
+
+  addLoad(i, m){
+    this.load[i] = Math.max(0, this.load[i] + m);
+    this.updateInvMass();
+    this.weights.clear();
+    for (let j = 0; j < this.n; j++){
+      if (this.load[j] <= 0) continue;
+      const s = new THREE.Mesh(weightGeo, weightMat);
+      s.scale.setScalar(0.05 + 0.13 * Math.cbrt(this.load[j]));
+      s.castShadow = true;
+      s.userData.i = j;
+      this.weights.add(s);
+    }
+  }
+
+  // interior particles on the straight line between the ends; gravity does the rest
+  layStraight(){
+    particlePos(this.a, _sa); particlePos(this.b, _sb);
+    for (let j = 1; j < this.k; j++){
+      const t = j / this.k, q = 3*(j-1);
+      this.x[q] = _sa.x + (_sb.x - _sa.x) * t;
+      this.x[q+1] = _sa.y + (_sb.y - _sa.y) * t;
+      this.x[q+2] = _sa.z + (_sb.z - _sa.z) * t;
+    }
+    this.p.set(this.x); this.v.fill(0); this.force.fill(0);
+  }
+
+  // the end of link j: the tied particle at either end, otherwise one of our own
+  linkEnd(j){ return j < 0 || j >= this.n ? (j < 0 ? this.a : this.b) : { cloth: this, i: j }; }
+
+  dispose(){ hangGroup.remove(this.weights); }
+}
+
+function addString(a, b, rest = null){
+  if (sameParticle(a, b)) return null;
+  if (strings.some(s => (sameParticle(s.a, a) && sameParticle(s.b, b)) || (sameParticle(s.a, b) && sameParticle(s.b, a)))){
+    toast('These particles are already tied');
+    return null;
+  }
+  const gap = particlePos(a, _sa).distanceTo(particlePos(b, _sb));
+  const s = new Wire(a, b, rest ?? Math.max(1e-3, gap * params.stringLength / 100));
+  strings.push(s);
+  stringsDirty = true;
+  refreshStats();
+  return s;
+}
+
+// removes the wires matching pred and every wire tied to a removed one
+function removeStrings(pred){
+  const dead = new Set(strings.filter(pred));
+  for (let grew = true; grew; ){
+    grew = false;
+    for (const s of strings) if (!dead.has(s) && (dead.has(s.a.cloth) || dead.has(s.b.cloth))){ dead.add(s); grew = true; }
+  }
+  if (!dead.size) return 0;
+  for (let k = strings.length - 1; k >= 0; k--) if (dead.has(strings[k])){ strings[k].dispose(); strings.splice(k, 1); }
+  if (pendingString && dead.has(pendingString.cloth)) setPendingString(null);
+  stringsDirty = true;
+  refreshStats();
+  return dead.size;
+}
+const removeStringsAt = (cloth, i) => removeStrings(s => s === cloth || sameParticle(s.a, { cloth, i }) || sameParticle(s.b, { cloth, i }));
+const removeStringsOf = cloth => removeStrings(s => s.a.cloth === cloth || s.b.cloth === cloth);
+const resetStrings = () => strings.forEach(s => s.layStraight());   // creation order: parents first
+
+function setPendingString(p){
+  pendingString = p;
+  pendingMarker.visible = !!p;
+  if (p) particlePos(p, pendingMarker.position);
+  updateHint();
+}
+
+function predictStrings(dt){
+  const g = params.gravity, damp = Math.max(0, 1 - params.damping * dt);
+  for (const s of strings){
+    const { x, p, v } = s;
+    for (let q = 0; q < x.length; q += 3){
+      p[q] = x[q]; p[q+1] = x[q+1]; p[q+2] = x[q+2];
+      v[q] *= damp; v[q+1] = (v[q+1] - g * dt) * damp; v[q+2] *= damp;
+      x[q] += v[q] * dt; x[q+1] += v[q+1] * dt; x[q+2] += v[q+2] * dt;
+    }
+  }
+}
+
+// links in order: (end a, 0), (0, 1), …, (n-1, end b); tension only, like the cloth
+function solveStrings(dt){
+  const idt2 = 1 / (dt * dt);
+  for (const s of strings){
+    const A = s.a.cloth, B = s.b.cloth, last = s.k - 1, X = s.x, W = s.w;
+    const alpha = s.linkRest / STRING_EA * idt2;
+    for (let j = 0; j <= last; j++){
+      let xa, ia, wa, xb, ib, wb;
+      if (j === 0){ xa = A.x; ia = 3*s.a.i; wa = A.w[s.a.i]; } else { xa = X; ia = 3*(j-1); wa = W[j-1]; }
+      if (j === last){ xb = B.x; ib = 3*s.b.i; wb = B.w[s.b.i]; } else { xb = X; ib = 3*j; wb = W[j]; }
+      const dx = xb[ib]-xa[ia], dy = xb[ib+1]-xa[ia+1], dz = xb[ib+2]-xa[ia+2];
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      const C = d - s.linkRest;
+      if (C <= 0 || d < 1e-9){ s.force[j] = 0; continue; }
+      const den = wa + wb + alpha;
+      if (den === 0){ s.force[j] = 0; continue; }
+      const lambda = C / den;
+      s.force[j] = lambda * idt2;
+      const f = lambda / d;
+      xa[ia] += wa * f * dx; xa[ia+1] += wa * f * dy; xa[ia+2] += wa * f * dz;
+      xb[ib] -= wb * f * dx; xb[ib+1] -= wb * f * dy; xb[ib+2] -= wb * f * dz;
+    }
+  }
+}
+
+function finishStrings(dt){
+  const idt = 1 / dt;
+  for (const s of strings){
+    const { x, p, v } = s;
+    for (let q = 0; q < x.length; q += 3){
+      if (x[q+1] < 0){ x[q+1] = 0; x[q] = 0.6*x[q] + 0.4*p[q]; x[q+2] = 0.6*x[q+2] + 0.4*p[q+2]; }
+      v[q] = (x[q] - p[q]) * idt; v[q+1] = (x[q+1] - p[q+1]) * idt; v[q+2] = (x[q+2] - p[q+2]) * idt;
+    }
+  }
+}
+
+const stringMaxForce = () => strings.reduce((m, s) => Math.max(m, ...s.force), 0);
+
+function updateStringView(scale){
+  if (stringsDirty){
+    stringsDirty = false;
+    if (stringLines){ hangGroup.remove(stringLines); stringLines.geometry.dispose(); stringLines = null; }
+    const n = strings.reduce((t, s) => t + s.k, 0);
+    if (n){
+      const g = new LineSegmentsGeometry();
+      g.setPositions(new Float32Array(n * 6));
+      g.setColors(new Float32Array(n * 6));
+      stringLines = new LineSegments2(g, stringMat);
+      stringLines.frustumCulled = false;
+      hangGroup.add(stringLines);
+    }
+  }
+  if (pendingString) particlePos(pendingString, pendingMarker.position);
+  for (const s of strings) for (const w of s.weights.children){
+    const i = w.userData.i;
+    w.position.set(s.x[3*i], s.x[3*i+1] - w.scale.x - 0.02, s.x[3*i+2]);
+  }
+  if (!stringLines) return;
+  const ia = stringLines.geometry.attributes.instanceStart.data, ca = stringLines.geometry.attributes.instanceColorStart.data;
+  const P = ia.array, C = ca.array, editing = simState === SIM.EDIT;
+  let o = 0;
+  for (const s of strings){
+    particlePos(s.a, _sa);
+    for (let j = 0; j < s.k; j++){
+      particlePos(s.linkEnd(j), _sb);
+      P[o] = _sa.x; P[o+1] = _sa.y; P[o+2] = _sa.z; P[o+3] = _sb.x; P[o+4] = _sb.y; P[o+5] = _sb.z;
+      if (editing) _c.copy(STRING_EDIT);
+      else if (s.force[j] <= 0) _c.copy(SLACK);
+      else _c.copy(TAUT_LO).lerp(TAUT_HI, Math.min(s.force[j] / scale, 1));
+      C[o] = C[o+3] = _c.r; C[o+1] = C[o+4] = _c.g; C[o+2] = C[o+5] = _c.b;
+      o += 6;
+      _sa.copy(_sb);
+    }
+  }
+  ia.needsUpdate = true; ca.needsUpdate = true;
 }
 
 /* ============================== auto anchors ============================== */
@@ -1274,7 +1865,7 @@ function autoAnchors(kind){
   if (!cloths.length) return;
   for (const c of cloths){
     const X = c.x;
-    if (kind === 'clear'){ for (const i of [...c.anchors.keys()]) c.toggleAnchor(i, false); continue; }
+    if (kind === 'clear'){ for (const i of [...c.anchors.keys()]) c.toggleAnchor(i, false); removeStringsOf(c); continue; }
     if (kind === 'top'){
       let best = 0;
       for (let i = 1; i < c.n; i++) if (X[3*i+1] > X[3*best+1]) best = i;
@@ -1304,7 +1895,7 @@ function autoAnchors(kind){
     }
   }
   refreshStats();
-  toast(kind === 'clear' ? 'Anchors cleared' : 'Anchors placed — press Hang');
+  toast(kind === 'clear' ? 'Anchors and strings cleared' : 'Anchors placed — press Hang');
 }
 
 // slide every anchor horizontally toward (f < 0) or away from its cloth's anchor centre.
@@ -1344,7 +1935,7 @@ function startHanging(){
 
 function stopHanging(restore){
   simState = SIM.EDIT;
-  if (restore) clothList().forEach(c => c.resetToRest());
+  if (restore){ clothList().forEach(c => c.resetToRest()); resetStrings(); }
   setPlayLabel('Hang');
   $('simstats').textContent = '';
   if (selectedAnchor) selectAnchor(selectedAnchor);
@@ -1354,7 +1945,14 @@ function stopHanging(restore){
 function stepAll(frames = 1){
   const sub = params.substeps, dt = 1 / 60 / sub;
   const cloths = clothList();
-  for (let f = 0; f < frames; f++) for (let s = 0; s < sub; s++) for (const c of cloths) c.step(dt);
+  for (let f = 0; f < frames; f++) for (let s = 0; s < sub; s++){
+    for (const c of cloths) c.predict(dt);
+    predictStrings(dt);
+    for (const c of cloths) c.solve(dt);
+    solveStrings(dt);
+    for (const c of cloths) c.finish(dt);
+    finishStrings(dt);
+  }
 }
 
 let statsTimer = 0;
@@ -1368,6 +1966,7 @@ function updateSimStats(now){
     total += c.nEdges;
     for (let i = 0; i < c.n; i++) low = Math.min(low, c.x[3*i+1]);
   }
+  for (const s of strings) for (let q = 1; q < s.x.length; q += 3) low = Math.min(low, s.x[q]);
   $('simstats').textContent = `${taut}/${total} links in tension · max ${max.toFixed(1)} · lowest ${low.toFixed(2)} m`;
 }
 
@@ -1458,6 +2057,20 @@ const PRESETS = {
     objects: [{ name: 'Net', source: { net: slackNet(primitiveNet('net'), 1.12) }, position: [0, 4.6, 0], cloth: { resolution: 40 },
       anchors: [[-1.5, 4.6, -1.5], [1.5, 4.6, -1.5], [1.5, 4.6, 1.5], [-1.5, 4.6, 1.5], [0, 4.6, -1.5], [0, 4.6, 1.5], [-1.5, 4.6, 0], [1.5, 4.6, 0]] }],
   }),
+  // two sheets hung from their outer corners only; strings across the gap carry the
+  // inner edges, so together they hang as one vault
+  tied: () => {
+    const Y = 4.6, sheet = (x, name) => ({
+      name, source: { prim: 'sheet' }, position: [x, Y, 0], cloth: { resolution: 24 },
+      anchors: [-1.5, 1.5].map(z => ({ at: [x + Math.sign(x) * 1.5, Y, z], to: [R2(x * 1.55), Y, z * 0.8] })),
+    });
+    const tie = z => ({ a: [0, [-0.2, Y, z]], b: [1, [0.2, Y, z]], length: 100 });
+    return {
+      params: { stretch: 0.5, bending: 0.12 }, display: 'both',
+      objects: [sheet(-1.7, 'Sheet — left'), sheet(1.7, 'Sheet — right')],
+      strings: [-1.5, -0.75, 0, 0.75, 1.5].map(tie),
+    };
+  },
   bag: () => ({
     params: { stretch: 0.45, bending: 0.25 }, display: 'both',
     objects: [{ name: 'Sphere', source: { prim: 'sphere' }, position: [0, 3.6, 0], cloth: { resolution: 26 },
@@ -1495,14 +2108,15 @@ function relativeToPage(href){
 function serializeScene(){
   const objs = [...objects.values()].map(obj => {
     const s = obj.source, c = obj.container;
-    const source = s.net ? { ...(s.prim ? { prim: s.prim } : {}), net: s.net }
+    const source = s.net && s.src ? { src: relativeToPage(s.src), format: s.format, size: s.size }
+      : s.net ? { ...(s.prim ? { prim: s.prim } : {}), net: s.net }
       : s.prim ? { prim: s.prim }
       : s.src ? { src: relativeToPage(s.src), format: s.format, size: s.size }
       : { data: bufToB64(s.data), format: s.format, size: s.size };
     const o = { name: obj.name, source, position: v3(c.position), quaternion: q4(c.quaternion), scale: v3(c.scale) };
     if (obj.cloth){
       const cl = obj.cloth, R = cl.rest;
-      o.cloth = { resolution: obj.resolution };
+      o.cloth = { resolution: obj.resolution, ...(obj.source.net && obj.slack !== 1 ? { slack: obj.slack } : {}) };
       o.anchors = [...cl.anchors].map(([i, a]) => {
         const at = [R2(R[3*i]), R2(R[3*i+1]), R2(R[3*i+2])], to = v3(simState === SIM.EDIT ? a.target : a.home);
         return at.every((v, k) => v === to[k]) ? at : { at, to };
@@ -1513,8 +2127,20 @@ function serializeScene(){
     }
     return o;
   });
+  const clothIndex = new Map([...objects.values()].map((o, k) => [o.cloth, k]));
+  // a string end on a cloth: [object index, rest position]; on another string: {string, i}
+  const at = r => r.cloth.isWire ? { string: strings.indexOf(r.cloth), i: r.i }
+    : [clothIndex.get(r.cloth), [R2(r.cloth.rest[3*r.i]), R2(r.cloth.rest[3*r.i+1]), R2(r.cloth.rest[3*r.i+2])]];
+  const wire = s => {
+    const o = { a: at(s.a), b: at(s.b), rest: +s.rest.toFixed(4) };
+    const loads = [];
+    s.load.forEach((m, i) => { if (m > 0) loads.push([i, +m.toFixed(4)]); });
+    if (loads.length) o.loads = loads;
+    return o;
+  };
   return {
     format: 'hanging-lab', version: 1,
+    ...(strings.length ? { strings: strings.map(wire) } : {}),
     params: { gravity: params.gravity, stretch: params.stretch, bending: params.bending, damping: params.damping, substeps: params.substeps },
     display, camera: { position: v3(camera.position), target: v3(orbit.target) },
     objects: objs,
@@ -1536,6 +2162,7 @@ async function loadScene(data, baseUrl = location.href){
   Object.assign(params, { gravity: 9.8, stretch: 0.1, bending: 0.2, damping: 1, substeps: 20 }, data.params || {});
   syncSliders();
   setDisplay(data.display || 'both');
+  const made = [];
   for (const o of data.objects){
     const s = o.source;
     let obj;
@@ -1545,18 +2172,24 @@ async function loadScene(data, baseUrl = location.href){
       obj.container.children[0].position.set(0, 0, 0);
       obj.container.children[0].scale.set(1, 1, 1);
     } else if (s.prim) obj = createPrimitive(s.prim, { place: false });
-    else {
+    else if (s.format === 'dxf' || s.format === 'dwg'){
+      const href = s.data ? null : new URL(s.src, baseUrl).href;
+      const buf = s.data ? b64ToBuf(s.data)
+        : await fetch(href, { cache:'no-cache' }).then(r => { if (!r.ok) throw new Error(`${s.src}: HTTP ${r.status}`); return r.arrayBuffer(); });
+      obj = await createLines(buf, o.name, s.format, { src: href, size: s.size ?? MODEL_SIZE });
+    } else {
       const href = s.data ? null : new URL(s.src, baseUrl).href;
       const buf = s.data ? b64ToBuf(s.data)
         : await fetch(href, { cache:'no-cache' }).then(r => { if (!r.ok) throw new Error(`${s.src}: HTTP ${r.status}`); return r.arrayBuffer(); });
       obj = await createModel(buf, o.name, s.format, { src: href, size: s.size ?? MODEL_SIZE });
     }
+    made.push(obj);
     obj.name = o.name ?? obj.name;
     obj.container.position.fromArray(o.position ?? [0, HANG_HEIGHT, 0]);
     if (o.quaternion) obj.container.quaternion.fromArray(o.quaternion);
     if (o.scale) obj.container.scale.fromArray(o.scale);
     if (o.cloth){
-      const cl = makeCloth(obj, o.cloth.resolution ?? params.resolution);
+      const cl = makeCloth(obj, o.cloth.resolution ?? params.resolution, o.cloth.slack ?? 1);
       for (const a of o.anchors || []){
         const at = Array.isArray(a) ? a : a.at, to = Array.isArray(a) ? null : a.to;
         cl.toggleAnchor(nearestParticle(cl, at), true, to ? new THREE.Vector3(...to) : null);
@@ -1566,6 +2199,22 @@ async function loadScene(data, baseUrl = location.href){
       cl.rebuildWeights();
       cl.updateView(1);
     }
+  }
+  // strings: {a: [object index, [x, y, z]] | {string, i}, b: …, rest?: m, length?: % of the gap,
+  // loads?: [[i, weight]]}; a string may only tie to strings listed before it
+  const wires = [];
+  const ref = e => {
+    if (Array.isArray(e)){ const c = made[e[0]]?.cloth; return c ? { cloth: c, i: nearestParticle(c, e[1]) } : null; }
+    const w = wires[e.string];
+    return w && e.i < w.n ? { cloth: w, i: e.i } : null;
+  };
+  for (const s of data.strings || []){
+    const pa = ref(s.a), pb = ref(s.b);
+    if (!pa || !pb){ wires.push(null); continue; }
+    const rest = s.rest ?? (s.length ? particlePos(pa, _sa).distanceTo(particlePos(pb, _sb)) * s.length / 100 : null);
+    const w = addString(pa, pb, rest);
+    for (const [i, m] of s.loads || []) if (w && i < w.n) w.addLoad(i, m);
+    wires.push(w);
   }
   markObjectList();
   refreshStats();
@@ -1606,8 +2255,10 @@ function exportOBJ(){
   if (!cloths.length) return toast('Nothing hung yet', true);
   const lines = ['# Funicular Form — hanging-lab export', `# ${inverted ? 'inverted (compression) form' : 'hanging (tension) form'}`];
   let base = 1;
+  const baseOf = new Map();
   hangGroup.updateMatrixWorld(true);
   for (const c of cloths){
+    baseOf.set(c, base);
     lines.push(`o ${c.obj.name.replace(/\s+/g, '_')}`);
     const m = c.group.matrixWorld;
     for (let i = 0; i < c.n; i++){
@@ -1622,6 +2273,26 @@ function exportOBJ(){
       }
     } else for (let e = 0; e < c.nEdges; e++) lines.push(`l ${c.edges[2*e]+base} ${c.edges[2*e+1]+base}`);
     base += c.n;
+  }
+  if (strings.length){
+    lines.push('o strings');
+    const m = hangGroup.matrixWorld;
+    // every wire's own vertices first, so a wire tied to another can refer to them
+    for (const s of strings){
+      baseOf.set(s, base);
+      for (let q = 0; q < s.x.length; q += 3){
+        _v.set(s.x[q], s.x[q+1], s.x[q+2]).applyMatrix4(m);
+        lines.push(`v ${_v.x.toFixed(5)} ${_v.y.toFixed(5)} ${_v.z.toFixed(5)}`);
+      }
+      base += s.n;
+    }
+    const vi = r => baseOf.get(r.cloth) + r.i;
+    for (const s of strings){
+      const idx = [vi(s.a)];
+      for (let i = 0; i < s.n; i++) idx.push(baseOf.get(s) + i);
+      idx.push(vi(s.b));
+      lines.push('l ' + idx.join(' '));
+    }
   }
   download(inverted ? 'funicular-form-inverted.obj' : 'funicular-form-hanging.obj', lines.join('\n') + '\n', 'text/plain');
 }
@@ -1703,6 +2374,13 @@ document.querySelectorAll('[data-prim]').forEach(b => b.onclick = () => {
   frameAll();
 });
 $('btn-load').onclick = () => { if (requireEdit()) $('model-input').click(); };
+$('btn-lines').onclick = () => { if (requireEdit()) $('lines-input').click(); };
+$('lines-input').addEventListener('change', e => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (f) loadLinesFile(f);
+});
+$('btn-dxf').onclick = exportDXF;
 $('model-input').addEventListener('change', e => {
   const f = e.target.files[0];
   e.target.value = '';
@@ -1714,7 +2392,7 @@ $('btn-cloth').onclick = () => {
   const todo = selectedObj && !selectedObj.cloth ? [selectedObj] : [...objects.values()].filter(o => !o.cloth);
   if (!todo.length) return toast('Everything is cloth already', true);
   try{
-    for (const o of todo) makeCloth(o, params.resolution);
+    for (const o of todo) makeCloth(o, params.resolution, params.slack / 100);
   }catch(err){ console.error(err); return toast(`Could not make cloth: ${err.message}`, true); }
   deselect();
   markObjectList();
@@ -1733,13 +2411,15 @@ $('btn-uncloth').onclick = () => {
 
 function setTool(t){
   tool = t;
-  for (const [id, tt] of [['tool-pin', TOOLS.PIN], ['tool-weight', TOOLS.WEIGHT], ['tool-move', TOOLS.MOVE]])
+  for (const [id, tt] of [['tool-pin', TOOLS.PIN], ['tool-weight', TOOLS.WEIGHT], ['tool-string', TOOLS.STRING], ['tool-move', TOOLS.MOVE]])
     $(id).classList.toggle('active', tt === t);
+  if (t !== TOOLS.STRING) setPendingString(null);
   if (t !== TOOLS.MOVE) selectAnchor(null);
   updateHint();
 }
 $('tool-pin').onclick = () => setTool(TOOLS.PIN);
 $('tool-weight').onclick = () => setTool(TOOLS.WEIGHT);
+$('tool-string').onclick = () => setTool(TOOLS.STRING);
 $('tool-move').onclick = () => setTool(TOOLS.MOVE);
 $('auto-corners').onclick = () => autoAnchors('corners');
 $('auto-boundary').onclick = () => autoAnchors('boundary');
@@ -1787,7 +2467,9 @@ $('btn-clear').onclick = () => { clearScene(); toast('Scene cleared'); };
 
 const sliders = [
   ['p-res',     'o-res',     'resolution', v => v.toFixed(0)],
+  ['p-slack',   'o-slack',   'slack',      v => v.toFixed(0) + '%'],
   ['p-load',    'o-load',    'load',       v => v.toFixed(0) + '%'],
+  ['p-strlen',  'o-strlen',  'stringLength', v => v.toFixed(0) + '%'],
   ['p-grav',    'o-grav',    'gravity',    v => v.toFixed(1)],
   ['p-stretch', 'o-stretch', 'stretch',    v => v.toFixed(2)],
   ['p-bend',    'o-bend',    'bending',    v => v.toFixed(2)],
@@ -1816,10 +2498,11 @@ addEventListener('keydown', e => {
   else if (k === 'p') setTool(TOOLS.PIN);
   else if (k === 'w') setTool(TOOLS.WEIGHT);
   else if (k === 'm') setTool(TOOLS.MOVE);
+  else if (k === 't') setTool(TOOLS.STRING);
   else if (k === 'i' && clothList().length) setInverted(!inverted);
   else if (k === 'f') frameAll();
   else if (k === ' ' && e.target.tagName !== 'BUTTON'){ e.preventDefault(); playBtn.click(); }
-  else if (k === 'escape'){ selectAnchor(null); deselect(); }
+  else if (k === 'escape'){ setPendingString(null); selectAnchor(null); deselect(); }
   else if ((k === 'delete' || k === 'backspace') && selectedObj && simState === SIM.EDIT) removeObject(selectedObj.id);
 });
 
@@ -1842,9 +2525,11 @@ function renderFrame(){
   if (simState !== SIM.EDIT){
     let m = 0;
     for (const c of cloths) m = Math.max(m, c.maxForce());
+    m = Math.max(m, stringMaxForce());
     tensionScale = Math.max(1e-6, tensionScale * 0.97, m);   // eases down, jumps up
   }
   for (const c of cloths) c.updateView(tensionScale);
+  updateStringView(tensionScale);
   if (selBox) selBox.update();
   renderer.render(scene, camera);
 }
@@ -1859,8 +2544,8 @@ function simulateFor(seconds){
 }
 
 // console access for scripting, e.g. hanging.buildPreset('guell'); hanging.simulateFor(5)
-window.hanging = { scene, camera, renderer, orbit, objects, params, PRESETS, buildPreset, loadScene, serializeScene,
-  clearScene, simulateFor, setInverted, exportOBJ, makeCloth, autoAnchors };
+window.hanging = { scene, camera, renderer, orbit, objects, strings, params, PRESETS, buildPreset, loadScene, serializeScene,
+  clearScene, simulateFor, setInverted, exportOBJ, exportDXF, readDXF, makeCloth, autoAnchors };
 
 resize();
 setPlayLabel('Hang');

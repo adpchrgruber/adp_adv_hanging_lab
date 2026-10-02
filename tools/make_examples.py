@@ -7,6 +7,7 @@ app's remeshing (step 02) does the work:
     hexagon-panel.obj   flat hexagon, 300 cm across
     star-panel.fbx      flat five-pointed star (ASCII FBX 7.4)
     ring-band.obj       open cylindrical band, 240 cm wide, 70 cm tall
+    plan-web.dxf        2D line plan in millimetres (lines, circle, arcs, polyline, spline)
 
 Scenes place them, pin anchors and give the cloth slack. Anchor positions only need
 to be close: the app snaps each to the nearest particle.
@@ -185,6 +186,53 @@ def ring_scene(verts):
     }, {'stretch': 0.45, 'bending': 0.2})
 
 
+# --- 2D line drawing ----------------------------------------------------------
+
+def plan_web_dxf():
+    """A plan of a hanging web in millimetres, as an architect would draw it: twelve
+    spokes (LINE) reaching to the supports, a ring (CIRCLE), an inner ring of ARCs, a
+    wavy LWPOLYLINE with bulges and one SPLINE — every entity type the importer reads."""
+    R_ring, R_out, R_in = 4200.0, 6000.0, 1800.0
+    out = ['0', 'SECTION', '2', 'HEADER', '9', '$ACADVER', '1', 'AC1009', '9', '$INSUNITS', '70', '4', '0', 'ENDSEC',
+           '0', 'SECTION', '2', 'ENTITIES']
+    def ent(kind, *codes):
+        out.extend(['0', kind, '8', 'WEB'])
+        out.extend(str(c) for c in codes)
+    for k in range(12):
+        a = math.radians(30 * k)
+        ent('LINE', 10, 0.0, 20, 0.0, 30, 0.0, 11, round(R_out * math.cos(a), 3), 21, round(R_out * math.sin(a), 3), 31, 0.0)
+    ent('CIRCLE', 10, 0.0, 20, 0.0, 30, 0.0, 40, R_ring)
+    for k in range(6):                                   # inner ring as six arcs of 60°
+        ent('ARC', 10, 0.0, 20, 0.0, 30, 0.0, 40, R_in, 50, 60 * k, 51, 60 * k + 60)
+    # a wavy ring between the two: 12 vertices on the spokes, alternate bulges
+    pts = [(3000 * math.cos(math.radians(30 * k)), 3000 * math.sin(math.radians(30 * k))) for k in range(12)]
+    codes = [90, 12, 70, 1]
+    for k, (x, y) in enumerate(pts):
+        codes += [10, round(x, 3), 20, round(y, 3), 42, 0.25 if k % 2 else -0.25]
+    ent('LWPOLYLINE', *codes)
+    # one spline (clamped cubic) bridging two spoke ends of the outer ring
+    ctrl = [(R_ring, 0), (5200, 1600), (4800, 3400), (R_ring * math.cos(math.radians(60)), R_ring * math.sin(math.radians(60)))]
+    codes = [70, 8, 71, 3, 72, 8, 73, 4]
+    for kv in [0, 0, 0, 0, 1, 1, 1, 1]:
+        codes += [40, kv]
+    for x, y in ctrl:
+        codes += [10, round(x, 3), 20, round(y, 3), 30, 0.0]
+    ent('SPLINE', *codes)
+    out += ['0', 'ENDSEC', '0', 'EOF']
+    return '\n'.join(out) + '\n', R_out
+
+
+def plan_web_scene(R_out):
+    """Hang the plan from the outer ends of its spokes; a sachet on the centre."""
+    pos, s = [0, 4.6, 0], SIZE / (2 * R_out)
+    ends = [[round(R_out * s * math.cos(math.radians(30 * k)), 3), pos[1], round(-R_out * s * math.sin(math.radians(30 * k)), 3)]
+            for k in range(12)]
+    return {'format': 'hanging-lab', 'version': 1, 'params': {'stretch': 0, 'bending': 0, 'damping': 2}, 'display': 'net',
+            'objects': [{'name': 'Plan web', 'source': {'src': 'plan-web.dxf', 'format': 'dxf', 'size': SIZE},
+                         'position': pos, 'cloth': {'resolution': 50, 'slack': 1.12},
+                         'anchors': ends, 'loads': [[0, pos[1], 0, 0.25]]}]}
+
+
 if __name__ == '__main__':
     os.makedirs(OUT, exist_ok=True)
     hv, ht = hexagon_panel()
@@ -193,7 +241,11 @@ if __name__ == '__main__':
     write_obj(os.path.join(OUT, 'hexagon-panel.obj'), 'hexagon_panel', hv, ht)
     write_fbx(os.path.join(OUT, 'star-panel.fbx'), 'star_panel', sv, st)
     write_obj(os.path.join(OUT, 'ring-band.obj'), 'ring_band', rv, rt)
-    for name, data in [('hex-shell', hex_scene(hv)), ('star-canopy', star_scene(sv)), ('ring-band', ring_scene(rv))]:
+    dxf, r_out = plan_web_dxf()
+    with open(os.path.join(OUT, 'plan-web.dxf'), 'w') as f:
+        f.write(dxf)
+    for name, data in [('hex-shell', hex_scene(hv)), ('star-canopy', star_scene(sv)), ('ring-band', ring_scene(rv)),
+                       ('plan-web', plan_web_scene(r_out))]:
         with open(os.path.join(OUT, name + '.json'), 'w') as f:
             json.dump(data, f, indent=1)
     print('wrote', sorted(os.listdir(OUT)))
